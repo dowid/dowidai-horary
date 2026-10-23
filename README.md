@@ -12,7 +12,7 @@ Deploy as a FastAPI project on Vercel. Production needs persistent Postgres; no 
 
 ## Implemented
 
-- Russian responsive UI, topic selection, city search, server UTC timestamp.
+- Russian and English responsive UI, topic selection, city search, server UTC timestamp.
 - Seven classical planets, Regiomontanus houses, longitudes/speeds/retrograde, five major aspects within a fixed display orb of 6°. SVG/PNG chart.
 - OpenAI explanation with validated fact and rule references; unsupported topics rejected. One model call, no retries.
 - Persistent private results, browser-owner cookie, explicit revocable sharing, deletion, JSON export, usefulness feedback.
@@ -39,3 +39,23 @@ In the dowidai-horary Vercel project, Settings → Environment Variables → HOR
 - `gpt-4.1-2025-04-14`
 
 Set Production and redeploy to apply. Visitors cannot select a model. Unknown values disable new readings. The about page reflects the selected model; saved reports keep their original model. Both options use the existing OpenAI key and the same $0.05 reservation with model-specific input caps. Current prices checked 2026-10-23: mini $0.40/$1.60 and full $2/$8 per million input/output tokens. Recheck pricing before modifying caps or allowed models. Both models are marked deprecated by OpenAI; review replacements before the announced January 14, 2027 shutdown.
+
+## Languages
+
+`/ru` and `/en` share the same private archive and calculations. `/` remains the Russian entry point. The header switch preserves the current page and shared-link fragment. Interface language is passed as `X-Horary-Language`; a reading also includes a validated `language` field. Saved AI answers retain their original language, while chart labels follow the interface. Legacy records without a language are Russian. Switching language does not translate or regenerate an existing AI answer.
+
+To add a language:
+1. Register its code, display name, formatting locale and prompt language in `i18n.LANGUAGES`.
+2. Add `static/locales/<code>.json` for interface strings and `locales/<code>.json` for API errors and calculated labels. Russian source strings are the keys; `{name}` placeholders are replaced by the client.
+3. Add authored content in `static/<code>/about.html`, `technical.html` and `articles/`. English content is maintained in `scripts/build_english_pages.py`; regenerate it with `python scripts/build_english_pages.py`.
+4. Verify transcription support for the language, check its terminology with a native speaker, and extend localization tests. New locales inherit routes, navigation, alternate links and statistics grouping without changes to the calculation engine.
+
+## Owner statistics
+
+`/admin` is a separate password-protected dashboard. It shows saved reports, distinct browser archives, last 24h/7d counts, a 30-day UTC chart, languages, topics, models, helpful/not-helpful votes, recorded input/output tokens and the monthly reservation counter. It never returns question text, cities, owner identifiers or IPs. Counts reflect the current database: deleted records are excluded, demos and failed calls are not saved reports, and browser archives are not unique people. Tokens cover saved answers only; budget reservations cover reading and voice calls, including failures. Neither is the actual OpenAI account balance.
+
+Run `python scripts/setup_admin.py` once to create a random high-entropy password in ignored `.key-setup/horary-admin.txt` and its SHA-256 hash in `.env.local` as `HORARY_ADMIN_PASSWORD_HASH`. Configure only the hash as a sensitive Production variable in the linked Vercel project, then redeploy. Never put the plaintext password in source, URLs or public variables. SHA-256 here relies on the generated 256-bit random password; do not substitute a short human password. The setup script refuses to overwrite an existing credential.
+
+Admin sessions use a separate signed HttpOnly cookie with an eight-hour expiry, Secure in production, SameSite=Strict and cross-origin POST protection. Five login attempts per IP per 15 minutes are enforced in PostgreSQL. A changed hash or SESSION_SECRET invalidates existing admin sessions. Missing configuration fails closed. Existing tables suffice; this release needs no database migration.
+
+Validation: `python -m pytest tests`, `node --test tests/voice.test.cjs`. For isolated database integration tests load the local configuration first: `HORARY_DB_TESTS=1 python -c "import app, pytest; raise SystemExit(pytest.main(['tests/test_storage.py','-q','--tb=no']))"`. The database suite creates and drops its own temporary schemas.

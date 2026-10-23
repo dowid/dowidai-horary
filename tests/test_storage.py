@@ -9,6 +9,69 @@ import storage
 
 pytestmark=pytest.mark.skipif(os.getenv('HORARY_DB_TESTS')!='1',reason='Requires dedicated database integration-test opt-in')
 
+
+def test_admin_aggregates_and_persistent_login_throttle(db_schema,monkeypatch):
+    import hashlib
+    import app as web
+    from fastapi.testclient import TestClient
+    from psycopg.types.json import Jsonb
+    monkeypatch.setenv('SESSION_SECRET','integration-test-secret')
+    monkeypatch.setenv('HORARY_ADMIN_PASSWORD_HASH',hashlib.sha256(b'admin-test').hexdigest())
+    monkeypatch.delenv('VERCEL',raising=False)
+    with db_schema() as db:
+        db.execute("INSERT INTO reports(id,owner,question,topic,city,data,feedback) VALUES (%s,%s,%s,%s,%s,%s,1)",('english','private-owner-marker','private-question-marker','career','private-city-marker',Jsonb({'language':'en','model':'test-model','usage':{'prompt_tokens':100,'completion_tokens':20}})))
+        db.execute("INSERT INTO reports(id,owner,question,topic,city,data) VALUES (%s,%s,%s,%s,%s,%s)",('legacy','another-owner','another question','relationships','some city',Jsonb({})))
+    with TestClient(web.app) as c:
+        assert c.get('/api/admin/stats').status_code==401
+        assert c.post('/api/admin/login',json={'password':'admin-test'}).status_code==200
+        response=c.get('/api/admin/stats')
+        assert response.status_code==200
+        result=response.json()
+        assert result['totals']['reports']==2 and result['totals']['browser_archives']==2
+        assert result['totals']['input_tokens']==100 and result['totals']['helpful']==1
+        assert len(result['daily'])==30 and sum(d['reports'] for d in result['daily'])==2
+        assert {r['label'] for r in result['languages']}=={'ru','en'}
+        assert result['quota']['reservations']==0
+        assert 'private-' not in response.text
+        for _ in range(4):assert c.post('/api/admin/login',json={'password':'bad'}).status_code==401
+        assert c.post('/api/admin/login',json={'password':'admin-test'}).status_code==429
+
+
+def test_english_reading_saved_shared_and_keeps_original_language(db_schema,monkeypatch):
+    import json
+    import app as web
+    from fastapi.testclient import TestClient
+    monkeypatch.setenv('AI_PAUSED','0')
+    monkeypatch.setenv('OPENAI_API_KEY','test-only')
+    monkeypatch.setenv('SESSION_SECRET','test-only')
+    monkeypatch.delenv('VERCEL',raising=False)
+    monkeypatch.setenv('HORARY_AI_MODEL',web.MODEL)
+    calls=[]
+    class Client:
+        def __init__(self,**kw):pass
+        def __enter__(self):return self
+        def __exit__(self,*a):pass
+        def post(self,*a,**kw):
+            calls.append(kw['json'])
+            class Reply:
+                def raise_for_status(self):pass
+                def json(self):return {'choices':[{'finish_reason':'stop','message':{'content':json.dumps({'status':'ok','summary':'English test summary','factors':[{'text':'Symbolic factor','fact_id':'p0','rule_id':'H005'}],'reflection':'What facts do you know?'})}}], 'usage':{'prompt_tokens':25,'completion_tokens':15}}
+            return Reply()
+    monkeypatch.setattr(web.httpx,'Client',Client)
+    with TestClient(web.app) as c:
+        c.get('/en')
+        r=c.post('/api/readings',json={'question':'How can I reflect on my current job?','city_id':'5128581','topic':'career','consent':True,'language':'en'},headers={'X-Horary-Language':'en'})
+        assert r.status_code==200
+        data=r.json();rid=data['id']
+        assert data['data']['language']=='en'
+        assert 'на английском' in calls[0]['messages'][0]['content']
+        token=c.post('/api/readings/'+rid+'/share').json()['token']
+        shared=c.post('/api/shared',json={'token':token}).json()
+        assert shared['data']['answer']['summary']=='English test summary'
+        assert shared['data']['language']=='en'
+        assert shared['data']['planets'][0]['name']=='Солнце'
+        assert c.get('/api/archive').json()[0]['id']==rid
+
 @pytest.fixture
 def db_schema(monkeypatch):
     schema='test_'+secrets.token_hex(8)
