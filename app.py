@@ -85,7 +85,7 @@ class Question(BaseModel):
 def status():
     ready=bool(os.getenv('OPENAI_API_KEY') and (os.getenv('HORARY_DATABASE_URL') or os.getenv('DATABASE_URL') or os.getenv('POSTGRES_URL')) and os.getenv('SESSION_SECRET'))
     paused=os.getenv('AI_PAUSED')=='1'
-    return {'ready':ready and not paused,'paused':paused,'method':'0.1','storage':'private','daily_limit':1}
+    return {'ready':ready and not paused,'paused':paused,'method':'0.1','storage':'private','daily_limit':storage.DAILY_LIMIT}
 
 @app.post('/api/readings')
 def reading(body:Question,request:Request):
@@ -104,7 +104,13 @@ def reading(body:Question,request:Request):
     ip=request.headers.get('x-vercel-forwarded-for') or (request.client.host if request.client else 'unknown')
     iphash=hmac.new(os.environ['SESSION_SECRET'].encode(),ip.encode(),hashlib.sha256).hexdigest()
     reason=storage.reserve(own,iphash,hashlib.sha256(question.casefold().encode()).hexdigest())
-    if reason:raise HTTPException(429,'На сегодня разбор уже использован. Вернитесь завтра; архив доступен.' if reason=='rate' else 'Бесплатный лимит этого месяца исчерпан. Архив остаётся доступен.')
+    if reason:
+        messages = {
+            'daily': f'Использованы все {storage.DAILY_LIMIT} попыток за последние 24 часа. Новая попытка станет доступна через 24 часа после одной из предыдущих. Архив доступен.',
+            'rate': 'Между запросами нужна пауза в одну минуту. Подождите немного и попробуйте снова.',
+            'budget': 'Бесплатный лимит этого месяца исчерпан. Архив остаётся доступен.',
+        }
+        raise HTTPException(429, messages[reason])
     payload=json.dumps({'question':question,'topic':body.topic,'chart':data,'rules':RULES},ensure_ascii=False)
     # At most 30KB input, 1400 output tokens, one call, no automatic retries.
     # At $0.40/$1.60 per million tokens this is below $0.05 reserved per call.

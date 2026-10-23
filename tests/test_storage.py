@@ -34,9 +34,26 @@ def test_parallel_limit_and_monthly_ceiling(db_schema):
     with db_schema() as db:
         assert db.execute('SELECT reservations FROM quota').fetchone()['reservations']==380
 
-def test_failed_reservation_does_not_reset_owner_limit(db_schema):
+def test_parallel_daily_limit_counts_repeated_questions(db_schema):
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results=list(pool.map(lambda i:storage.reserve('owner',f'ip-{i}','same-question'),range(12)))
+    assert results.count(None)==10 and results.count('daily')==2
+    with db_schema() as db:
+        assert db.execute('SELECT reservations FROM quota').fetchone()['reservations']==10
+        db.execute("UPDATE throttle SET touched=now()-interval '25 hours' WHERE key='o:owner'")
+    assert storage.reserve('owner','new-ip','same-question') is None
+    assert storage.reserve('owner','another-ip','same-question')=='daily'
+
+def test_legacy_attempt_counts_and_minute_limit_preserved(db_schema):
+    with db_schema() as db:
+        db.execute("INSERT INTO throttle(key) VALUES ('o:owner')")
     assert storage.reserve('owner','ip','question') is None
-    assert storage.reserve('owner','different-ip','different-question')=='rate'
+    assert storage.reserve('owner','ip','different-question')=='rate'
+    for i in range(8):
+        assert storage.reserve('owner',f'other-{i}','question') is None
+    assert storage.reserve('owner','last-ip','question')=='daily'
+    with db_schema() as db:
+        assert db.execute('SELECT reservations FROM quota').fetchone()['reservations']==9
 
 def test_archive_privacy_sharing_deletion_with_stubbed_ai(db_schema,monkeypatch):
     import app as web

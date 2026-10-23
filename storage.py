@@ -2,6 +2,8 @@ import os
 import psycopg
 from psycopg.rows import dict_row
 
+DAILY_LIMIT = 10
+
 def connect():
     url = os.environ.get('HORARY_DATABASE_URL') or os.environ.get('DATABASE_URL') or os.environ.get('POSTGRES_URL')
     if not url:
@@ -21,16 +23,22 @@ def reserve(owner, ip_hash, question_hash):
         # Serialise quota and throttle decisions across all instances.
         db.execute('SELECT pg_advisory_xact_lock(8246517)')
         db.execute("DELETE FROM throttle WHERE touched < now() - interval '2 days'")
-        for key, seconds in [(f'o:{owner}', 86400), (f'i:{ip_hash}', 60), (f'q:{owner}:{question_hash}', 86400)]:
-            old = db.execute('SELECT 1 FROM throttle WHERE key=%s AND touched > now() - %s * interval \'1 second\'', (key,seconds)).fetchone()
-            if old:
-                return 'rate'
+        # Slot zero preserves attempts made before the daily limit was raised.
+        slots = [f'o:{owner}'] + [f'o:{owner}:{i}' for i in range(1, DAILY_LIMIT)]
+        active = {row['key'] for row in db.execute(
+            "SELECT key FROM throttle WHERE key=ANY(%s) AND touched > now() - interval '24 hours'",
+            (slots,)).fetchall()}
+        slot = next((key for key in slots if key not in active), None)
+        if slot is None:
+            return 'daily'
+        if db.execute("SELECT 1 FROM throttle WHERE key=%s AND touched > now() - interval '1 minute'", (f'i:{ip_hash}',)).fetchone():
+            return 'rate'
         month = db.execute("SELECT to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM') AS month").fetchone()['month']
         db.execute('INSERT INTO quota(month) VALUES (%s) ON CONFLICT DO NOTHING', (month,))
         count=db.execute('SELECT reservations FROM quota WHERE month=%s', (month,)).fetchone()['reservations']
         if count >= 380:
             return 'budget'
         db.execute('UPDATE quota SET reservations=reservations+1 WHERE month=%s', (month,))
-        for key in (f'o:{owner}',f'i:{ip_hash}',f'q:{owner}:{question_hash}'):
+        for key in (slot, f'i:{ip_hash}'):
             db.execute('INSERT INTO throttle(key) VALUES (%s) ON CONFLICT(key) DO UPDATE SET touched=now()', (key,))
     return None
