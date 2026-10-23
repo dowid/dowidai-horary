@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import struct
 from datetime import datetime, timezone
 from functools import lru_cache
 from urllib.parse import urlparse
@@ -43,7 +44,8 @@ async def protection(request:Request, call_next):
         origin=request.headers.get('origin')
         if origin and urlparse(origin).netloc != request.headers.get('host'):
             return JSONResponse({'detail':'Запрос с другого сайта отклонён.'},status_code=403)
-        if int(request.headers.get('content-length','0') or '0') > 8192:
+        limit = 960044 if request.url.path == '/api/transcribe' else 8192
+        if int(request.headers.get('content-length','0') or '0') > limit:
             return JSONResponse({'detail':'Слишком большой запрос.'},status_code=413)
     response=await call_next(request)
     response.headers['X-Content-Type-Options']='nosniff'
@@ -113,6 +115,51 @@ def status():
     paused=os.getenv('AI_PAUSED')=='1'
     model = os.getenv('HORARY_AI_MODEL', MODEL).strip()
     return {'ready':ready and not paused and model in MODELS,'paused':paused,'method':'0.1','storage':'private','daily_limit':storage.DAILY_LIMIT,'model':model if model in MODELS else None}
+
+def validate_audio(audio):
+    # Canonical mono PCM WAV from the client: enforce actual duration, not a header claim.
+    if not 3244 <= len(audio) <= 960044:
+        raise HTTPException(422, 'Запишите от 0,1 до 30 секунд речи.')
+    expected = struct.pack('<4sI4s4sIHHIIHH4sI', b'RIFF', len(audio)-8,
+        b'WAVE', b'fmt ', 16, 1, 1, 16000, 32000, 2, 16, b'data', len(audio)-44)
+    if audio[:44] != expected or (len(audio)-44) % 2:
+        raise HTTPException(422, 'Не удалось прочитать запись. Попробуйте ещё раз.')
+
+@app.post('/api/transcribe')
+async def transcribe(request:Request):
+    own = owner(request)
+    if not status()['ready']:
+        raise HTTPException(503, 'Голосовой ввод временно недоступен. Вопрос можно написать.')
+    if request.headers.get('x-voice-consent') != 'true' or request.headers.get('content-type') != 'audio/wav':
+        raise HTTPException(422, 'Подтвердите отправку аудио для распознавания.')
+    audio = bytearray()
+    async for chunk in request.stream():
+        if len(audio) + len(chunk) > 960044:
+            raise HTTPException(413, 'Запись слишком большая. Максимум — 30 секунд.')
+        audio.extend(chunk)
+    validate_audio(audio)
+    ip = request.headers.get('x-vercel-forwarded-for') or (request.client.host if request.client else 'unknown')
+    iphash = hmac.new(os.environ['SESSION_SECRET'].encode(), ip.encode(), hashlib.sha256).hexdigest()
+    from starlette.concurrency import run_in_threadpool
+    reason = await run_in_threadpool(storage.reserve, own, iphash, '', purpose='voice')
+    if reason:
+        messages = {'daily':'Использованы 10 голосовых попыток за 24 часа. Вопрос можно написать.',
+                    'rate':'Между голосовыми попытками нужна минута. Вопрос можно написать.',
+                    'budget':'Бесплатный бюджет месяца исчерпан. Архив остаётся доступен.'}
+        raise HTTPException(429, messages[reason])
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            result = await client.post('https://api.openai.com/v1/audio/transcriptions',
+                headers={'Authorization':'Bearer '+os.environ['OPENAI_API_KEY']},
+                files={'file':('question.wav', bytes(audio), 'audio/wav')},
+                data={'model':'gpt-4o-mini-transcribe','language':'ru','response_format':'json'})
+            result.raise_for_status()
+        transcript = result.json()['text']
+        if not isinstance(transcript, str) or not transcript.strip() or len(transcript) > 4000:
+            raise ValueError('Invalid transcript')
+        return {'text':transcript.strip()}
+    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+        raise HTTPException(503, 'Не удалось распознать речь. Вопрос можно написать или повторить запись через минуту.')
 
 @app.post('/api/readings')
 def reading(body:Question,request:Request):

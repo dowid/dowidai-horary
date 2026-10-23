@@ -17,8 +17,12 @@ def migrate():
         db.execute('CREATE TABLE IF NOT EXISTS quota (month TEXT PRIMARY KEY, reservations INTEGER NOT NULL DEFAULT 0)')
         db.execute('CREATE TABLE IF NOT EXISTS throttle (key TEXT PRIMARY KEY, touched TIMESTAMPTZ NOT NULL DEFAULT now())')
 
-def reserve(owner, ip_hash, question_hash):
+def reserve(owner, ip_hash, question_hash, purpose='reading'):
     """One transaction: rate limits and conservative spend reservation, no refunds on errors."""
+    if purpose == 'voice':
+        owner, ip_hash = 'voice:'+owner, 'voice:'+ip_hash
+    elif purpose != 'reading':
+        raise ValueError('Unknown reservation purpose')
     with connect() as db:
         # Serialise quota and throttle decisions across all instances.
         db.execute('SELECT pg_advisory_xact_lock(8246517)')

@@ -91,3 +91,16 @@ def test_archive_privacy_sharing_deletion_with_stubbed_ai(db_schema,monkeypatch,
         assert b.post('/api/shared',json={'token':token}).status_code==404
         a.delete('/api/readings/'+rid)
         assert a.get('/api/readings/'+rid).status_code==404
+
+
+def test_voice_separate_limits_shared_budget(db_schema):
+    assert storage.reserve('owner','ip','',purpose='voice') is None
+    assert storage.reserve('owner','ip','question') is None
+    assert storage.reserve('owner','ip','',purpose='voice')=='rate'
+    for i in range(9):
+        assert storage.reserve('owner',f'voice-{i}','',purpose='voice') is None
+    assert storage.reserve('owner','last','',purpose='voice')=='daily'
+    with db_schema() as db:
+        assert db.execute('SELECT reservations FROM quota').fetchone()['reservations']==11
+        db.execute('UPDATE quota SET reservations=380')
+    assert storage.reserve('other','other','',purpose='voice')=='budget'
