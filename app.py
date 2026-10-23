@@ -62,6 +62,10 @@ def home(request:Request):
 def robots():
     return Response('User-agent: *\nDisallow: /api/\n',media_type='text/plain')
 
+@app.get('/about')
+def about():
+    return FileResponse(ROOT/'static'/'about.html')
+
 @lru_cache(maxsize=1)
 def cities():
     return geonamescache.GeonamesCache().get_cities()
