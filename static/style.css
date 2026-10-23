@@ -71,4 +71,5 @@ header,main,footer{width:100%;min-width:0}
 .events-section{margin:38px 0;padding-top:28px;border-top:1px solid var(--line)}.events-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:26px}.events-columns section{min-width:0}.events-columns h3{background:#e9ede6;padding:12px 16px;font:22px Georgia,serif}.events-columns td{font-size:12px;padding:10px 8px}.events-columns td:nth-child(2){white-space:normal;min-width:170px}.events-section .hint{font-size:12px;line-height:1.7}.degree-scale{overflow:auto;background:white;border:1px solid var(--line);border-radius:8px;max-width:100%}.degree-scale svg{display:block;width:100%;height:auto;min-width:560px}.events-columns th{font-size:10px}@media(max-width:1000px){.events-columns{grid-template-columns:minmax(0,1fr)}}
 
 /* Emphasize the question in private and shared reports. */
-#resultQuestion{font-weight:700;color:#1d332b}
+#resultQuestion{font-weight:700;color:#17543d;background:#e4efda;border-left:4px solid #60954b;border-radius:0 12px 12px 0;padding:20px 24px;box-sizing:border-box;overflow-wrap:anywhere}
+@media(max-width:620px){#resultQuestion{padding:16px;border-left-width:3px}}
