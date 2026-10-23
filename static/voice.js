@@ -12,7 +12,7 @@
     el('voiceStart').hidden = value !== 'idle';
     el('voiceStop').hidden = value !== 'recording';
     el('voiceCancel').hidden = value === 'idle';
-    el('voiceWave').hidden = value !== 'recording';
+    el('voiceRecording').hidden = value !== 'recording';
     document.dispatchEvent(new CustomEvent('voicebusy',{detail:value !== 'idle'}));
   }
   function release(s) {
@@ -27,27 +27,31 @@
     el('voiceNotice').hidden = true;
     state('idle','Микрофон выключен.');
   }
-  function waveform(s) {
+  async function waveform(s) {
     try {
+      await s.context.resume();
+      if(active !== s || s.recorder.state !== 'recording') return;
       s.source = s.context.createMediaStreamSource(s.stream);
       s.analyser = s.context.createAnalyser(); s.analyser.fftSize = 1024;
       s.source.connect(s.analyser);
       const samples = new Float32Array(1024), history = new Array(28).fill(0);
       const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-      let last = 0;
+      let last = 0, lastSound = 0;
       function draw(now) {
         if(active !== s || s.recorder.state !== 'recording') return;
         if(now-last >= (reduced ? 400 : 80)) {
           last = now; s.analyser.getFloatTimeDomainData(samples);
           const rms = Math.sqrt(samples.reduce((sum,v)=>sum+v*v,0)/samples.length);
-          const level = Number.isFinite(rms) ? Math.max(0,Math.min(1,(rms-.005)*8)) : 0;
+          const level = Number.isFinite(rms) ? Math.sqrt(Math.max(0,Math.min(1,(rms-.001)*35))) : 0;
+          if(rms > .003) lastSound = now;
+          el('voiceSignal').textContent = s.context.state !== 'running' ? 'Запись идёт, но шкала звука недоступна в этом браузере.' : now-lastSound>1800 ? 'Пока тихо — говорите ближе к микрофону' : rms>.003 ? 'Слышим ваш голос' : 'Говорите — шкала реагирует на ваш голос';
           if(reduced) history.fill(level); else {history.shift();history.push(level);}
           bars.forEach((bar,i)=>{const h=3+25*history[i];bar.setAttribute('height',h);bar.setAttribute('y',(32-h)/2);});
         }
         s.frame = requestAnimationFrame(draw);
       }
       s.frame = requestAnimationFrame(draw);
-    } catch { /* Keep a flat waveform and the explicit recording indicator. */ }
+    } catch { if(active === s) el('voiceSignal').textContent = 'Запись идёт, но шкала звука недоступна в этом браузере.'; }
   }
   function wav(samples) {
     const count = Math.min(samples.length,480000), buffer = new ArrayBuffer(44+count*2), v = new DataView(buffer);
@@ -106,8 +110,9 @@
       };
       s.recorder.start(250);const started=Date.now();
       bars.forEach(bar=>{bar.setAttribute('height',3);bar.setAttribute('y',14.5);});
-      state('recording','● Записываем · 0 / 30 с');waveform(s);
-      s.timer=setInterval(()=>{const seconds=Math.floor((Date.now()-started)/1000);el('voiceStatus').textContent=`● Записываем · ${Math.min(seconds,30)} / 30 с`;if(seconds>=30 && s.recorder.state==='recording') s.recorder.stop();},200);
+      el('voiceSignal').textContent='Говорите — шкала реагирует на ваш голос';
+      state('recording','Записываем · 0 / 30 с');waveform(s);
+      s.timer=setInterval(()=>{const seconds=Math.floor((Date.now()-started)/1000);el('voiceStatus').textContent=`Записываем · ${Math.min(seconds,30)} / 30 с`;if(seconds>=30 && s.recorder.state==='recording') s.recorder.stop();},200);
       el('voiceStop').focus();
     }catch{if(current()){cancel();el('voiceStatus').textContent='Микрофон недоступен. Разрешите доступ в настройках браузера или напишите вопрос.';}}
   };
