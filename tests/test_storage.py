@@ -32,6 +32,8 @@ def test_admin_aggregates_and_persistent_login_throttle(db_schema,monkeypatch):
         assert len(result['daily'])==30 and sum(d['reports'] for d in result['daily'])==2
         assert {r['label'] for r in result['languages']}=={'ru','en'}
         assert result['quota']['reservations']==0
+        assert result['costs']['included_reports']==0
+        assert result['costs']['excluded_reports']==2
         assert 'private-' not in response.text
         listing=c.get('/api/admin/questions')
         assert listing.status_code==200 and len(listing.json()['items'])==2
@@ -42,6 +44,18 @@ def test_admin_aggregates_and_persistent_login_throttle(db_schema,monkeypatch):
         assert detail.headers['cache-control']=='no-store'
         for _ in range(4):assert c.post('/api/admin/login',json={'password':'bad'}).status_code==401
         assert c.post('/api/admin/login',json={'password':'admin-test'}).status_code==429
+
+
+def test_cost_query_cached_and_legacy_rows(db_schema):
+    from psycopg.types.json import Jsonb
+    from ai_costs import saved_report_costs
+    with db_schema() as db:
+        for rid, data in [('cost', {'model':'gpt-4.1-mini-2025-04-14','usage':{'prompt_tokens':1000,'completion_tokens':100,'prompt_tokens_details':{'cached_tokens':200}}}),('missing',{})]:
+            db.execute('INSERT INTO reports(id,owner,question,topic,city,data) VALUES (%s,%s,%s,%s,%s,%s)',(rid,'test','test','career','City',Jsonb(data)))
+        costs=saved_report_costs(db)
+        assert costs['estimated_total_usd']==pytest.approx(.0005)
+        assert costs['estimated_month_usd']==pytest.approx(.0005)
+        assert costs['included_reports']==1 and costs['excluded_reports']==1
 
 
 def test_english_reading_saved_shared_and_keeps_original_language(db_schema,monkeypatch):

@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, Request, Response, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 import storage
+from ai_costs import saved_report_costs
 
 router = APIRouter()
 COOKIE = 'horary_admin'
@@ -85,6 +86,7 @@ def logout(response: Response):
 def stats(request: Request):
     require_admin(request)
     with storage.connect() as db:
+        costs = saved_report_costs(db)
         totals = db.execute("""SELECT count(*) AS reports, count(DISTINCT owner) AS browser_archives,
             count(*) FILTER (WHERE created >= now() - interval '24 hours') AS last_24h,
             count(*) FILTER (WHERE created >= now() - interval '7 days') AS last_7d,
@@ -103,7 +105,7 @@ def stats(request: Request):
         topics = db.execute('SELECT topic AS label,count(*) AS count FROM reports GROUP BY 1 ORDER BY 2 DESC').fetchall()
         models = db.execute("SELECT coalesce(data->>'model','unknown') AS label,count(*) AS count FROM reports GROUP BY 1 ORDER BY 2 DESC").fetchall()
         quota = db.execute("SELECT to_char(now() AT TIME ZONE 'UTC','YYYY-MM') AS month, coalesce((SELECT reservations FROM quota WHERE month=to_char(now() AT TIME ZONE 'UTC','YYYY-MM')),0) AS reservations").fetchone()
-    return {'totals': totals, 'daily': daily, 'languages': languages, 'topics': topics,
+    return {'costs': costs, 'totals': totals, 'daily': daily, 'languages': languages, 'topics': topics,
             'models': models, 'quota': {**quota, 'limit': 380, 'reserve_per_call': 0.05},
             'generated_at': int(time.time())}
 

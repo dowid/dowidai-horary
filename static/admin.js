@@ -18,6 +18,11 @@
   }
   function render(data){
     const t=data.totals;
+    const costs=data.costs,money=value=>value==null?'Нет данных':new Intl.NumberFormat('ru-RU',{style:'currency',currency:'USD',minimumFractionDigits:4,maximumFractionDigits:6}).format(value);
+    const costValues=[['Все сохранённые разборы',costs.included_reports?costs.estimated_total_usd:null],['Текущий месяц · UTC',costs.included_reports?costs.estimated_month_usd:null],['В среднем на разбор',costs.estimated_average_usd]];
+    $('costMetrics').replaceChildren(...costValues.map(([label,value])=>{const card=node('article','');card.className='admin-metric';card.append(node('span',label),node('strong',money(value)));return card;}));
+    $('costCoverage').textContent=`Учтено разборов: ${costs.included_reports}. Без данных о токенах или известного тарифа: ${costs.excluded_reports}. Тарифы проверены ${costs.rates_checked}.`;
+    $('costModels').replaceChildren(...costs.models.map(row=>{const p=node('p','');p.className='admin-breakdown';p.append(node('span',row.model),node('strong',money(row.estimated_usd)));return p;}));
     const values=[['За 24 часа',t.last_24h],['За 7 дней',t.last_7d],['Всего сохранено',t.reports],['Браузерных архивов',t.browser_archives],['Публичных ссылок',t.shared],['Полезно / не полезно',count(t.helpful)+' / '+count(t.not_helpful)],['Входных токенов',t.input_tokens],['Выходных токенов',t.output_tokens]];
     $('metrics').replaceChildren(...values.map(([label,value])=>{const card=node('article','');card.className='admin-metric';card.append(node('span',label),node('strong',typeof value==='string'?value:count(value)));return card;}));
     $('updated').textContent='Обновлено: '+new Date(data.generated_at*1000).toLocaleString('ru-RU');
