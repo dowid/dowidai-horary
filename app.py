@@ -74,9 +74,16 @@ def robots():
 
 @app.get('/about')
 def about():
+    return description_page('about.html')
+
+@app.get('/technical')
+def technical():
+    return description_page('technical.html')
+
+def description_page(filename):
     model = selected_model()
     info = MODELS[model]
-    page = (ROOT/'static'/'about.html').read_text(encoding='utf-8')
+    page = (ROOT/'static'/filename).read_text(encoding='utf-8')
     page = page.replace(MODEL, model).replace('GPT-4.1 mini', info['name'])
     page = page.replace('/models/gpt-4.1-mini', '/models/'+info['slug'])
     return HTMLResponse(page, headers={'Cache-Control': 'no-store'})

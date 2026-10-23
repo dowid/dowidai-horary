@@ -7,10 +7,14 @@ def test_owner_model_setting_updates_description(monkeypatch,model,slug):
     monkeypatch.setenv('HORARY_AI_MODEL',model)
     with TestClient(app) as c:
         assert c.get('/api/status').json()['model']==model
-        page=c.get('/about')
+        page=c.get('/technical')
         assert page.status_code==200
         assert model in page.text
         assert f'https://developers.openai.com/api/docs/models/{slug}"' in page.text
+        simple=c.get('/about')
+        assert simple.status_code==200
+        assert f'https://developers.openai.com/api/docs/models/{slug}"' in simple.text
+        assert '/technical' in simple.text and '/about' in page.text
 
 def test_unknown_model_disables_requests(monkeypatch):
     monkeypatch.setenv('HORARY_AI_MODEL','unapproved-model')
