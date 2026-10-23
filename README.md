@@ -16,7 +16,7 @@ Deploy as a FastAPI project on Vercel. Production needs persistent Postgres; no 
 - Seven classical planets, Regiomontanus houses, longitudes/speeds/retrograde, five major aspects within a fixed display orb of 6°. SVG/PNG chart.
 - OpenAI explanation with validated fact and rule references; unsupported topics rejected. One model call, no retries.
 - Persistent private results, browser-owner cookie, explicit revocable sharing, deletion, JSON export, usefulness feedback.
-- Database-atomic rate limits and conservative monthly budget reservation. Up to 10 report attempts per owner in a rolling 24h window (including failed AI calls; repeated questions allowed), one request per IP hash per minute, 380 attempts/calendar month UTC globally. Each attempt reserves $0.05 without refunds, including failed calls; ceiling $19 leaves $1 buffer. This is deliberately conservative, not actual billing. At configured model rates and maximum 30KB prompt / 1400 output tokens, individual call cost is below the reservation. Model/prices must be rechecked before changes. The OpenAI project/provider budget is separate and not configured by this code. Do not use the app's key outside this app.
+- Database-atomic rate limits and conservative monthly budget reservation. Up to 10 report attempts per owner in a rolling 24h window (including failed AI calls; repeated questions allowed), one request per IP hash per minute, 380 attempts/calendar month UTC globally. Each attempt reserves $0.05 without refunds, including failed calls; ceiling $19 leaves $1 buffer. This is deliberately conservative, not actual billing. At configured model rates and maximum 30KB prompt for mini or 12KB for full GPT-4.1 / 1400 output tokens, individual call cost is below the reservation. Model/prices must be rechecked before changes. The OpenAI project/provider budget is separate and not configured by this code. Do not use the app's key outside this app.
 
 ## Important limits
 
@@ -31,3 +31,11 @@ Private archive currently depends on a cookie (one year renewable by future UX);
 AGPL-3.0-or-later; see LICENSE. Source link is in the site footer. Dependency copyrights remain with their respective authors. Swiss Ephemeris © Astrodienst AG, Dieter Koch and Alois Treindl. Python wrapper: pysweph / pyswisseph contributors (AGPL). See https://github.com/sailorfe/pysweph and https://github.com/aloistr/swisseph .
 
 Cities from GeoNames via geonamescache (https://www.geonames.org/, CC BY 4.0 for GeoNames data). Knowledge notes and links in `knowledge/rules.md`; prose summaries are original, not copied articles. Astronomical calculation precision is not evidence of astrological predictive validity.
+
+## Owner-only model setting
+
+In the dowidai-horary Vercel project, Settings → Environment Variables → HORARY_AI_MODEL:
+- `gpt-4.1-mini-2025-04-14` (default)
+- `gpt-4.1-2025-04-14`
+
+Set Production and redeploy to apply. Visitors cannot select a model. Unknown values disable new readings. The about page reflects the selected model; saved reports keep their original model. Both options use the existing OpenAI key and the same $0.05 reservation with model-specific input caps. Current prices checked 2026-10-23: mini $0.40/$1.60 and full $2/$8 per million input/output tokens. Recheck pricing before modifying caps or allowed models. Both models are marked deprecated by OpenAI; review replacements before the announced January 14, 2027 shutdown.

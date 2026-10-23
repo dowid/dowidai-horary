@@ -1,5 +1,24 @@
 from fastapi.testclient import TestClient
 from app import app
+import pytest
+
+@pytest.mark.parametrize('model,slug', [('gpt-4.1-mini-2025-04-14','gpt-4.1-mini'), ('gpt-4.1-2025-04-14','gpt-4.1')])
+def test_owner_model_setting_updates_description(monkeypatch,model,slug):
+    monkeypatch.setenv('HORARY_AI_MODEL',model)
+    with TestClient(app) as c:
+        assert c.get('/api/status').json()['model']==model
+        page=c.get('/about')
+        assert page.status_code==200
+        assert model in page.text
+        assert f'https://developers.openai.com/api/docs/models/{slug}"' in page.text
+
+def test_unknown_model_disables_requests(monkeypatch):
+    monkeypatch.setenv('HORARY_AI_MODEL','unapproved-model')
+    with TestClient(app) as c:
+        assert c.get('/api/status').json()['ready'] is False
+        c.get('/')
+        r=c.post('/api/readings',json={'question':'Как посмотреть на мою работу?','city_id':'5128581','topic':'career','consent':True,'model':'gpt-4.1-mini-2025-04-14'})
+        assert r.status_code==503
 
 def test_home_cookie_security_and_demo():
     with TestClient(app) as c:

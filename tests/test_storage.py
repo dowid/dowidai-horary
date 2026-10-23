@@ -55,12 +55,14 @@ def test_legacy_attempt_counts_and_minute_limit_preserved(db_schema):
     with db_schema() as db:
         assert db.execute('SELECT reservations FROM quota').fetchone()['reservations']==9
 
-def test_archive_privacy_sharing_deletion_with_stubbed_ai(db_schema,monkeypatch):
+@pytest.mark.parametrize('model', ['gpt-4.1-mini-2025-04-14', 'gpt-4.1-2025-04-14'])
+def test_archive_privacy_sharing_deletion_with_stubbed_ai(db_schema,monkeypatch,model):
     import app as web
     from fastapi.testclient import TestClient
     monkeypatch.setenv('AI_PAUSED','0')
     monkeypatch.setenv('OPENAI_API_KEY','test-only-not-a-real-key')
     monkeypatch.setenv('SESSION_SECRET','test-only-secret')
+    monkeypatch.setenv('HORARY_AI_MODEL',model)
     class Reply:
         def raise_for_status(self):pass
         def json(self):
@@ -71,12 +73,15 @@ def test_archive_privacy_sharing_deletion_with_stubbed_ai(db_schema,monkeypatch)
         def __init__(self,**kwargs):pass
         def __enter__(self):return self
         def __exit__(self,*args):pass
-        def post(self,*args,**kwargs):return Reply()
+        def post(self,*args,**kwargs):
+            assert kwargs['json']['model']==model
+            return Reply()
     with TestClient(web.app,base_url='https://testserver') as a, TestClient(web.app,base_url='https://testserver') as b:
         monkeypatch.setattr(web.httpx,'Client',FakeClient)
         a.get('/'); b.get('/')
         r=a.post('/api/readings',json={'question':'Как посмотреть на перспективу моей новой работы?','topic':'career','city_id':'5128581','consent':True})
         assert r.status_code==200
+        assert r.json()['data']['model']==model
         rid=r.json()['id']
         assert len(a.get('/api/archive').json())==1
         assert b.get('/api/readings/'+rid).status_code==404
