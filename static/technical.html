@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Хорар для разработчиков — движок и архитектура</title><meta name="description" content="Swiss Ephemeris, pysweph, собственный расчётный код, OpenAI и архитектура Хорара."><link rel="icon" href="/static/icon.svg" type="image/svg+xml"><link rel="stylesheet" href="/static/style.css"></head>
 <body><header><a href="/" class="brand" aria-label="Хорар, главная"><span class="brand-icon">✳</span> хорар<span class="beta">BETA</span></a><nav><a href="/" class="nav-link">Задать вопрос ↗</a></nav></header><main class="about-page">
-<nav class="about-toc" aria-label="Об описании сервиса"><a href="/about" >Для пользователей</a><a href="/technical" aria-current="page">Для разработчиков</a></nav>
+<nav class="about-toc" aria-label="Об описании сервиса"><a href="/articles">Статьи о хораре</a><a href="/about" >Для пользователей</a><a href="/technical" aria-current="page">Для разработчиков</a></nav>
 <div class="about-intro"><span class="eyebrow">ДЛЯ РАЗРАБОТЧИКОВ · ВЕРСИЯ 0.1</span><h1>Как устроен<br>Хорар.</h1><p class="lead">Расчётная основа, собственная логика приложения и генерация текста — отдельные части системы. Ниже описана текущая реализация.</p></div>
 <aside class="summary-card"><p>Вопрос + город + серверное время → Swiss Ephemeris → данные карты и правила приложения → GPT-4.1 mini → проверка ответа → приватный архив.</p></aside>
 <nav class="about-toc" aria-label="Разделы технического описания"><a href="#engine">Движок</a><a href="#architecture">Архитектура</a><a href="#model">Модель ИИ</a><a href="#limitations">Ограничения</a><a href="#sources">Код и источники</a></nav>

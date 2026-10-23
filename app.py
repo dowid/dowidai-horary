@@ -82,6 +82,16 @@ def about():
 def technical():
     return description_page('technical.html')
 
+@app.get('/articles')
+def articles():
+    return FileResponse(ROOT/'static'/'articles'/'index.html')
+
+@app.get('/articles/{slug}')
+def article(slug:str):
+    if slug not in {'what-is-horary','history','methods','evidence'}:
+        raise HTTPException(404, 'Статья не найдена.')
+    return FileResponse(ROOT/'static'/'articles'/(slug+'.html'))
+
 def description_page(filename):
     model = selected_model()
     info = MODELS[model]
