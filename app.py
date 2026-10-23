@@ -227,7 +227,7 @@ def reading(body:Question,request:Request):
     rid=secrets.token_urlsafe(18)
     with storage.connect() as db:
         db.execute('INSERT INTO reports(id,owner,question,topic,city,data) VALUES (%s,%s,%s,%s,%s,%s)',(rid,own,question,body.topic,city['name'],Jsonb(data)))
-    return {'id':rid,'question':question,'city':city['name'],'data':data,'svg':wheel(data)}
+    return {'id':rid,'question':question,'city':city['name'],'data':data,'svg':wheel(data,city['name'])}
 
 @app.get('/api/archive')
 def archive(request:Request):
@@ -242,7 +242,7 @@ def get_report(rid,own):
     return row
 
 def public_report(row):
-    return {k:row[k] for k in ('id','question','city','data')}|{'svg':wheel(row['data'])}
+    return {k:row[k] for k in ('id','question','city','data')}|{'svg':wheel(row['data'],row['city'])}
 
 @app.get('/api/readings/{rid}')
 def get_reading(rid:str,request:Request):return public_report(get_report(rid,owner(request)))
@@ -280,4 +280,4 @@ def feedback(rid:str,body:Feedback,request:Request):
 def demo():
     data=chart(datetime(2026,10,23,12,tzinfo=timezone.utc),40.71,-74.01,'career')
     data['answer']={'summary':'Это пример оформления, а не персональный прогноз. Карта показывает положения планет в фиксированный момент.','factors':[{'text':'В вопросе о собственной работе мы рассматриваем управителей первого и десятого домов. Их положение — исходные данные для символического чтения, а не ответ о результате собеседования.','fact_id':data['significators']['subject'],'rule_id':'H005'}],'reflection':'Какие факты о вакансии помогут вам принять решение независимо от карты?'}
-    return {'id':'demo','question':'Как посмотреть на перспективу новой работы?','city':'New York City','data':data,'svg':wheel(data)}
+    return {'id':'demo','question':'Как посмотреть на перспективу новой работы?','city':'New York City','data':data,'svg':wheel(data,'New York City')}

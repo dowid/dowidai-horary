@@ -24,6 +24,11 @@ $('deleteBtn').onclick=()=>action(async()=>{if(!confirm('Удалить разб
 for(const [id,value] of [['yesBtn',1],['noBtn',0]])$(id).onclick=()=>action(async()=>{await api(`/api/readings/${current.id}/feedback`,{method:'POST',body:JSON.stringify({value})});$('resultMessage').textContent='Спасибо! Отзыв сохранён.'});
 function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000)}
 $('exportBtn').onclick=()=>download(new Blob([JSON.stringify(current,null,2)],{type:'application/json'}),'horary-'+current.id+'.json');
-$('pngBtn').onclick=()=>action(async()=>{const img=new Image(),url=URL.createObjectURL(new Blob([current.svg],{type:'image/svg+xml'}));try{await new Promise((ok,no)=>{img.onload=ok;img.onerror=no;img.src=url});const c=document.createElement('canvas');c.width=c.height=1000;c.getContext('2d').drawImage(img,0,0,1000,1000);c.toBlob(b=>{if(b)download(b,'horary-chart.png')},'image/png')}finally{URL.revokeObjectURL(url)}});
+$('pngBtn').onclick=()=>action(async()=>{const img=new Image(),url=URL.createObjectURL(new Blob([current.svg],{type:'image/svg+xml'}));try{await new Promise((ok,no)=>{img.onload=ok;img.onerror=no;img.src=url});const c=document.createElement('canvas');c.width=2000;c.height=2400;c.getContext('2d').drawImage(img,0,0,c.width,c.height);c.toBlob(b=>{if(b)download(b,'horary-chart.png')},'image/png')}finally{URL.revokeObjectURL(url)}});
 if(location.hash.startsWith('#share=')){const token=location.hash.slice(7);api('/api/shared',{method:'POST',body:JSON.stringify({token})}).then(r=>render(r,true)).catch(e=>{view('archive');$('archiveList').replaceChildren(text('p',e.message,'error'))})}
 api('/api/status').then(s=>{$('dailyLimitNote').textContent=`♧ Вопрос приватный · до ${s.daily_limit} попыток за 24 часа`;servicePaused=!s.ready;updateButtons();if(s.paused){error('Новые ИИ-разборы временно на паузе. Пока можно посмотреть пример и открыть архив.');$('submitBtn').disabled=true;$('submitBtn').textContent='ИИ-разборы скоро вернутся'}}).catch(()=>{});
+
+$('expandChartBtn').onclick=()=>{$('largeChart').innerHTML=current.svg;$('chartDialog').showModal()};
+$('closeChartBtn').onclick=()=>$('chartDialog').close();
+$('dialogPngBtn').onclick=()=>$('pngBtn').click();
+$('svgBtn').onclick=()=>download(new Blob([current.svg],{type:'image/svg+xml'}),'horary-chart.svg');

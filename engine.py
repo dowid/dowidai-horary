@@ -45,28 +45,7 @@ def chart(at: datetime, lat: float, lon: float, topic: str):
     significators = {'querent': f'p{RULERS[int(cusps[0] // 30)]}', 'subject': f'p{RULERS[int(cusps[6 if topic == "relationships" else 9] // 30)]}'}
     if significators['querent'] == significators['subject']:
         warnings.append('Один управитель представляет обе стороны. Эта неоднозначность ограничивает автоматическую трактовку.')
-    return dict(time=at.isoformat(), planets=planets, houses=[round(x, 5) for x in cusps], asc=round(angles[0], 5), aspects=aspects, significators=significators, warnings=warnings, method='Regiomontanus · 7 планет · Moshier · v0.1', limitations=['Орбис отображения 6° — упрощение MVP.', 'Рецепции, достоинства, передача света и Луна без курса пока не оцениваются.', 'Сходящийся аспект означает уменьшение расстояния до точного аспекта сейчас, а не доказанное достижение аспекта в будущем.'])
+    return dict(time=at.isoformat(), latitude=lat, longitude=lon, planets=planets, houses=[round(x, 5) for x in cusps], asc=round(angles[0], 5), aspects=aspects, significators=significators, warnings=warnings, method='Regiomontanus · 7 планет · Moshier · v0.1', limitations=['Орбис отображения 6° — упрощение MVP.', 'Рецепции, достоинства, передача света и Луна без курса пока не оцениваются.', 'Сходящийся аспект означает уменьшение расстояния до точного аспекта сейчас, а не доказанное достижение аспекта в будущем.'])
 
-def wheel(data):
-    def point(deg, r):
-        rad = math.radians(180 - (deg - data['asc']))
-        return 220 + r * math.cos(rad), 220 - r * math.sin(rad)
-    svg = ['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 440" role="img" aria-label="Карта положений планет">', '<circle cx="220" cy="220" r="209" fill="#fbf8f1" stroke="#b9b7a7"/>', '<circle cx="220" cy="220" r="171" fill="none" stroke="#b9b7a7"/>', '<circle cx="220" cy="220" r="128" fill="none" stroke="#ddd9cd"/>']
-    for i in range(12):
-        x,y = point(i*30,209); x2,y2=point(i*30,171)
-        svg.append(f'<path d="M{x},{y} L{x2},{y2}" stroke="#b9b7a7"/>')
-        x,y=point(i*30+15,190)
-        svg.append(f'<text x="{x}" y="{y+5}" text-anchor="middle" font-size="19" fill="#656d5c">{chr(9800+i)}</text>')
-        x,y=point(data['houses'][i],171); x2,y2=point(data['houses'][i],128)
-        svg.append(f'<path d="M{x},{y} L{x2},{y2}" stroke="#c5c4b8"/>')
-    for a in data['aspects']:
-        p=data['planets'][int(a['a'][1:])]; q=data['planets'][int(a['b'][1:])]
-        x,y=point(p['longitude'],122); u,v=point(q['longitude'],122)
-        color='#bd8570' if a['angle'] in (90,180) else '#7c9987'
-        svg.append(f'<path d="M{x},{y} L{u},{v}" stroke="{color}" opacity=".5"/>')
-    for i,p in enumerate(data['planets']):
-        # Alternate radial lanes to reduce label collisions.
-        x,y=point(p['longitude'],138+(i%3)*10)
-        svg.append(f'<circle cx="{x}" cy="{y}" r="12" fill="#fbf8f1"/><text x="{x}" y="{y+5}" text-anchor="middle" font-size="16" fill="#274d45">{["☉","☽","☿","♀","♂","♃","♄"][i]}</text>')
-    svg.append('</svg>')
-    return ''.join(svg)
+
+from chart_render import wheel
