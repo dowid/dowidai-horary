@@ -33,6 +33,13 @@ def test_admin_aggregates_and_persistent_login_throttle(db_schema,monkeypatch):
         assert {r['label'] for r in result['languages']}=={'ru','en'}
         assert result['quota']['reservations']==0
         assert 'private-' not in response.text
+        listing=c.get('/api/admin/questions')
+        assert listing.status_code==200 and len(listing.json()['items'])==2
+        assert 'private-question-marker' in listing.text
+        assert 'private-owner-marker' not in listing.text
+        detail=c.get('/api/admin/questions/english')
+        assert detail.status_code==200 and detail.json()['city']=='private-city-marker'
+        assert detail.headers['cache-control']=='no-store'
         for _ in range(4):assert c.post('/api/admin/login',json={'password':'bad'}).status_code==401
         assert c.post('/api/admin/login',json={'password':'admin-test'}).status_code==429
 

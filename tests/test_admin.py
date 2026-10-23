@@ -20,6 +20,8 @@ def test_auth_required_before_any_database_read(credentials,monkeypatch):
         for token in ('','forged','123.nonce.fake'):
             c.cookies.set('horary_admin',token)
             assert c.get('/api/admin/stats').status_code==401
+            assert c.get('/api/admin/questions').status_code==401
+            assert c.get('/api/admin/questions/private-id').status_code==401
         page=c.get('/admin')
         assert page.headers['cache-control']=='no-store'
         assert page.headers['x-robots-tag']=='noindex, nofollow'
@@ -54,3 +56,28 @@ def test_admin_fail_closed_when_unconfigured(monkeypatch):
     monkeypatch.delenv('HORARY_ADMIN_PASSWORD_HASH',raising=False)
     with TestClient(web.app) as c:
         assert c.get('/api/admin/stats').status_code==503
+        assert c.get('/api/admin/questions').status_code==503
+
+
+def test_private_questions_pagination_and_missing_report(credentials, monkeypatch):
+    calls=[]
+    class DB:
+        def __enter__(self): return self
+        def __exit__(self,*args): pass
+        def execute(self, sql, params):
+            calls.append((sql,params))
+            return self
+        def fetchall(self):
+            return [{'id':str(i),'question':'<script>private</script>','city':'City'} for i in range(21)]
+        def fetchone(self): return None
+    monkeypatch.setattr(admin.storage,'connect',DB)
+    with TestClient(web.app) as c:
+        c.cookies.set('horary_admin',admin.session_token())
+        r=c.get('/api/admin/questions?page=2')
+        assert r.status_code==200
+        assert r.headers['cache-control']=='no-store'
+        assert len(r.json()['items'])==20 and r.json()['has_more']
+        assert calls[-1][1]==(20,)
+        assert c.get('/api/admin/questions?page=0').status_code==422
+        assert c.get('/api/admin/questions/missing').status_code==404
+        assert calls[-1][1]==('missing',)

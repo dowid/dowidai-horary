@@ -59,3 +59,5 @@ Run `python scripts/setup_admin.py` once to create a random high-entropy passwor
 Admin sessions use a separate signed HttpOnly cookie with an eight-hour expiry, Secure in production, SameSite=Strict and cross-origin POST protection. Five login attempts per IP per 15 minutes are enforced in PostgreSQL. A changed hash or SESSION_SECRET invalidates existing admin sessions. Missing configuration fails closed. Existing tables suffice; this release needs no database migration.
 
 Validation: `python -m pytest tests`, `node --test tests/voice.test.cjs`. For isolated database integration tests load the local configuration first: `HORARY_DB_TESTS=1 python -c "import app, pytest; raise SystemExit(pytest.main(['tests/test_storage.py','-q','--tb=no']))"`. The database suite creates and drops its own temporary schemas.
+
+Admin questions: the authenticated dashboard lists saved questions (20 per page) with city, date, language and model, and expands saved AI answers. The private API never creates share links or returns owner identifiers. Deleted reports are absent.

@@ -1,4 +1,4 @@
-"""Owner-only aggregate dashboard. No questions, cities, or owner identifiers leave this API."""
+"""Owner-only dashboard and private report review."""
 import hashlib
 import hmac
 import os
@@ -6,7 +6,7 @@ import secrets
 import time
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, HTTPException, Request, Response, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 import storage
@@ -106,3 +106,26 @@ def stats(request: Request):
     return {'totals': totals, 'daily': daily, 'languages': languages, 'topics': topics,
             'models': models, 'quota': {**quota, 'limit': 380, 'reserve_per_call': 0.05},
             'generated_at': int(time.time())}
+
+
+@router.get('/api/admin/questions')
+def questions(request: Request, page: int = Query(1, ge=1, le=100000)):
+    require_admin(request)
+    with storage.connect() as db:
+        rows = db.execute("""SELECT id, created, question, city, topic,
+            coalesce(data->>'language','ru') AS language,
+            coalesce(data->>'model','unknown') AS model
+            FROM reports ORDER BY created DESC, id DESC LIMIT 21 OFFSET %s""",
+            ((page - 1) * 20,)).fetchall()
+    return {'items': rows[:20], 'page': page, 'has_more': len(rows) > 20}
+
+
+@router.get('/api/admin/questions/{report_id}')
+def question_detail(report_id: str, request: Request):
+    require_admin(request)
+    with storage.connect() as db:
+        row = db.execute("""SELECT question, city, created,
+            data->'answer' AS answer FROM reports WHERE id=%s""", (report_id,)).fetchone()
+    if row is None:
+        raise HTTPException(404, 'Report not found.')
+    return row
