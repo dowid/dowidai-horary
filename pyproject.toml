@@ -1,0 +1,6 @@
+[project]
+name = "dowidai-horary"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = ["fastapi==0.115.12", "uvicorn==0.34.2", "pysweph==2.10.3.6", "geonamescache==2.0.0", "psycopg[binary]==3.2.9", "httpx==0.28.1", "python-dotenv==1.1.0"]
+

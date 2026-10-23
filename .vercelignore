@@ -1,0 +1,10 @@
+.env*
+.key-setup
+.venv
+.deps
+.agents
+skills-lock.json
+.git
+tests
+__pycache__
+*.sqlite*

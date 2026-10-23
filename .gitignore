@@ -1,0 +1,16 @@
+.env*
+!.env.example
+.key-setup/
+.vercel/
+.venv/
+__pycache__/
+*.pyc
+node_modules/
+.deps/
+.agents/
+skills-lock.json
+.pytest_cache/
+*.sqlite*
+
+.vercel
+.env*
