@@ -94,3 +94,55 @@ def wheel(data, city=''):
     text(40,1186,'dowidai-horary.vercel.app · Расчётная карта; достоверность предсказаний не установлена.',12,'#62676a')
     svg.append('</g></svg>')
     return ''.join(svg)
+
+def event_sheet(data):
+    """Standalone degree strip and event tables; also appended to the PNG sheet."""
+    events=data['events']
+    lanes=[-100]*7; labels=[]
+    for p in sorted(data['planets'],key=lambda p:p['longitude']%30):
+        x=40+(p['longitude']%30)/30*920
+        lane=next(i for i,v in enumerate(lanes) if x-v>=70);lanes[lane]=x
+        labels.append((p,x,93+lane*43))
+    axis=max(235,max(y for _,_,y in labels)+44)
+    height=axis+160+sum(100+len(events[k])*26 for k in ('past','future'))
+    parts=[f'<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="{height}" viewBox="0 0 1000 {height}">',f'<rect width="1000" height="{height}" fill="white"/>','<g font-family="Arial, DejaVu Sans, sans-serif">']
+    def text(x,y,value,size=16,color='#24282b'):
+        parts.append(f'<text x="{x:.2f}" y="{y}" font-size="{size}" fill="{color}">{escape(str(value))}</text>')
+    text(40,32,'ПОЛОЖЕНИЯ ВНУТРИ ЗНАКОВ · 0–30°',18)
+    text(40,56,'Шкала сравнивает градусы внутри разных знаков, а не расстояния между планетами.',13,'#62676a')
+    for p,x,y in labels:
+        i=int(p['id'][1:]);sign=int(p['longitude']//30)
+        text(max(40,min(920,x-12)),y,GLYPHS[i]+(' ←' if p['retrograde'] else ''),22)
+        text(max(40,min(920,x-12)),y+20,SIGNS[sign],18,COLORS[sign])
+        parts.append(f'<path d="M{x:.2f},{y+24} V{axis}" stroke="#c4c8ca" stroke-width=".6"/>')
+    parts.append(f'<path d="M40,{axis} H960" stroke="#737b80"/>')
+    for i in range(31):
+        x=40+i/30*920
+        parts.append(f'<path d="M{x},{axis-5} V{axis+10 if i%5==0 else axis+5}" stroke="#737b80"/>')
+        if i%5==0:text(x-6,axis+31,str(i),13,'#62676a')
+    scale="".join(parts)+"</g></svg>"
+    scale=scale.replace(f'height="{height}" viewBox="0 0 1000 {height}"',f'height="{axis+45}" viewBox="0 0 1000 {axis+45}"',1)
+    y=axis+80
+    for key,title in (('past','Прошлые события'),('future','Будущие события')):
+        parts.append(f'<rect x="40" y="{y-25}" width="920" height="38" fill="#eef0f0"/>')
+        text(54,y,title,20);y+=44
+        text(54,y,'Дата и время · UTC',13,'#62676a');text(260,y,'Событие',13,'#62676a');text(720,y,'Положение¹',13,'#62676a');text(865,y,'Дней²',13,'#62676a');y+=28
+        for e in events[key]:
+            dt=datetime.fromisoformat(e['time']).astimezone(timezone.utc)
+            text(54,y,dt.strftime('%d.%m.%y %H:%M'),15)
+            text(260,y,e['label'],15)
+            sign,degree,minute=zodiac(e['longitude'])
+            text(720,y,('→ '+SIGNS[e['sign']]) if e['kind']=='ingress' else degree+' '+SIGNS[sign]+' '+minute,16,COLORS[e.get('sign',sign)])
+            text(865,y,f"{e['days']:+.2f}",14,'#62676a')
+            y+=26
+        y+=28
+    text(40,y,'¹ Положение первой планеты в строке. ² Время относительно момента карты, в сутках.',12,'#62676a')
+    text(40,y+21,'Ближайшее событие каждого типа / пары. Поиск: до 3 лет до и после карты. Семь планет.',12,'#62676a')
+    text(40,y+42,'Движения небесных тел — не предсказания жизненных событий. Полный календарь не показан.',12,'#62676a')
+    parts.append('</g></svg>')
+    return ''.join(parts),height,scale
+
+def full_sheet(base, appendix, height):
+    total=1200+height
+    # Nested SVG preserves the exact chart geometry and the independently usable tables.
+    return f'<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="{total}" viewBox="0 0 1000 {total}">{base}<g transform="translate(0 1200)">{appendix}</g></svg>'

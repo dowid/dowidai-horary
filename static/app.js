@@ -12,7 +12,7 @@ document.addEventListener('click',e=>{if(!e.target.closest('.city-wrap')){$('cit
 $('questionForm').onsubmit=async e=>{e.preventDefault();if(voiceBusy||readingBusy||servicePaused)return;$('formError').hidden=true;if(!city){error('Выберите город из выпадающего списка.');return}readingBusy=true;updateButtons();$('loading').hidden=false;try{const r=await api('/api/readings',{method:'POST',body:JSON.stringify({question:$('question').value,topic:new FormData(e.target).get('topic'),city_id:city.id,consent:$('consent').checked})});render(r,false)}catch(e){error(e.message)}finally{readingBusy=false;updateButtons();$('loading').hidden=true}};
 function render(r,isShared){current=r;shared=isShared;view('result');$('result').focus();$('resultLabel').textContent=r.id==='demo'?'ПРИМЕР · НЕ ПЕРСОНАЛЬНЫЙ РАЗБОР':isShared?'ОПУБЛИКОВАННЫЙ РАЗБОР':'ВАШ ПРИВАТНЫЙ РАЗБОР';$('resultQuestion').textContent=r.question;$('resultMeta').textContent=`${r.city} · ${new Date(r.data.time).toLocaleString('ru-RU')} (время вашего браузера)`;$('summary').textContent=r.data.answer.summary;$('reflection').textContent=r.data.answer.reflection;$('factors').replaceChildren();for(const [i,f] of r.data.answer.factors.entries()){const box=text('article','','factor');box.append(text('span',`0${i+1}`,'step'),text('p',f.text),text('small',`Основание: ${f.fact_id} · правило ${f.rule_id}`));$('factors').append(box)}
 // SVG is generated exclusively by the server from numeric ephemeris data, never from model/user text.
-$('chart').innerHTML=r.svg;$('warnings').replaceChildren(...r.data.warnings.map(w=>text('p',w,'warning')));$('method').textContent=r.data.method+(r.data.model?' · Модель ИИ: '+r.data.model:'');$('limits').replaceChildren(...r.data.limitations.map(w=>text('li',w)));$('planetTable').replaceChildren();for(const p of r.data.planets){const tr=document.createElement('tr');for(const val of [p.name,p.sign,p.degree+'°',p.house,p.retrograde?'Ретроградное':'Прямое'])tr.append(text('td',val));$('planetTable').append(tr)}$('aspectList').replaceChildren(text('h3','Аспекты в пределах 6°'));for(const a of r.data.aspects){const names=a.a.slice(1)+' '+a.b.slice(1);$('aspectList').append(text('p',`${r.data.planets[+a.a.slice(1)].name} — ${r.data.planets[+a.b.slice(1)].name}: ${a.name}, орбис ${a.orb}°, ${a.applying?'сходится':'расходится'}`))}$('ownerActions').hidden=isShared||r.id==='demo';$('resultMessage').textContent='';}
+$('chart').innerHTML=r.svg;renderEvents(r);$('warnings').replaceChildren(...r.data.warnings.map(w=>text('p',w,'warning')));$('method').textContent=r.data.method+(r.data.model?' · Модель ИИ: '+r.data.model:'');$('limits').replaceChildren(...r.data.limitations.map(w=>text('li',w)));$('planetTable').replaceChildren();for(const p of r.data.planets){const tr=document.createElement('tr');for(const val of [p.name,p.sign,p.degree+'°',p.house,p.retrograde?'Ретроградное':'Прямое'])tr.append(text('td',val));$('planetTable').append(tr)}$('aspectList').replaceChildren(text('h3','Аспекты в пределах 6°'));for(const a of r.data.aspects){const names=a.a.slice(1)+' '+a.b.slice(1);$('aspectList').append(text('p',`${r.data.planets[+a.a.slice(1)].name} — ${r.data.planets[+a.b.slice(1)].name}: ${a.name}, орбис ${a.orb}°, ${a.applying?'сходится':'расходится'}`))}$('ownerActions').hidden=isShared||r.id==='demo';$('resultMessage').textContent='';}
 document.querySelectorAll('.back').forEach(b=>b.onclick=()=>{history.replaceState(null,'',location.pathname);view('landing')});
 $('demoBtn').onclick=async()=>{try{render(await api('/api/demo'),false)}catch(e){error(e.message)}};
 $('archiveBtn').onclick=async()=>{view('archive');$('archiveList').replaceChildren(text('p','Загружаем архив…'));try{const rows=await api('/api/archive');$('archiveList').replaceChildren();if(!rows.length)$('archiveList').append(text('p','Здесь появятся ваши разборы. Начните с одного вопроса.'));for(const r of rows){const a=text('article','','archive-item');const b=text('button','Открыть разбор ↗');b.onclick=async()=>{try{render(await api('/api/readings/'+r.id),false)}catch(e){$('archiveList').prepend(text('p',e.message,'error'))}};a.append(text('h3',r.question),text('p',`${r.city} · ${new Date(r.created).toLocaleDateString('ru-RU')}`),b);$('archiveList').append(a)}}catch(e){$('archiveList').replaceChildren(text('p',e.message,'error'))}};
@@ -24,11 +24,30 @@ $('deleteBtn').onclick=()=>action(async()=>{if(!confirm('Удалить разб
 for(const [id,value] of [['yesBtn',1],['noBtn',0]])$(id).onclick=()=>action(async()=>{await api(`/api/readings/${current.id}/feedback`,{method:'POST',body:JSON.stringify({value})});$('resultMessage').textContent='Спасибо! Отзыв сохранён.'});
 function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000)}
 $('exportBtn').onclick=()=>download(new Blob([JSON.stringify(current,null,2)],{type:'application/json'}),'horary-'+current.id+'.json');
-$('pngBtn').onclick=()=>action(async()=>{const img=new Image(),url=URL.createObjectURL(new Blob([current.svg],{type:'image/svg+xml'}));try{await new Promise((ok,no)=>{img.onload=ok;img.onerror=no;img.src=url});const c=document.createElement('canvas');c.width=2000;c.height=2400;c.getContext('2d').drawImage(img,0,0,c.width,c.height);c.toBlob(b=>{if(b)download(b,'horary-chart.png')},'image/png')}finally{URL.revokeObjectURL(url)}});
+$('pngBtn').onclick=()=>action(async()=>{const img=new Image(),url=URL.createObjectURL(new Blob([current.export_svg||current.svg],{type:'image/svg+xml'}));try{await new Promise((ok,no)=>{img.onload=ok;img.onerror=no;img.src=url});const c=document.createElement('canvas');const ratio=img.naturalHeight/img.naturalWidth;c.width=Math.min(2000,Math.floor(Math.sqrt(14000000/ratio)));c.height=Math.round(c.width*ratio);c.getContext('2d').drawImage(img,0,0,c.width,c.height);c.toBlob(b=>{if(b)download(b,'horary-chart.png')},'image/png')}finally{URL.revokeObjectURL(url)}});
 if(location.hash.startsWith('#share=')){const token=location.hash.slice(7);api('/api/shared',{method:'POST',body:JSON.stringify({token})}).then(r=>render(r,true)).catch(e=>{view('archive');$('archiveList').replaceChildren(text('p',e.message,'error'))})}
 api('/api/status').then(s=>{$('dailyLimitNote').textContent=`♧ Вопрос приватный · до ${s.daily_limit} попыток за 24 часа`;servicePaused=!s.ready;updateButtons();if(s.paused){error('Новые ИИ-разборы временно на паузе. Пока можно посмотреть пример и открыть архив.');$('submitBtn').disabled=true;$('submitBtn').textContent='ИИ-разборы скоро вернутся'}}).catch(()=>{});
 
-$('expandChartBtn').onclick=()=>{$('largeChart').innerHTML=current.svg;$('chartDialog').showModal()};
+$('expandChartBtn').onclick=()=>{$('largeChart').innerHTML=current.export_svg||current.svg;$('chartDialog').showModal()};
 $('closeChartBtn').onclick=()=>$('chartDialog').close();
 $('dialogPngBtn').onclick=()=>$('pngBtn').click();
-$('svgBtn').onclick=()=>download(new Blob([current.svg],{type:'image/svg+xml'}),'horary-chart.svg');
+$('svgBtn').onclick=()=>download(new Blob([current.export_svg||current.svg],{type:'image/svg+xml'}),'horary-chart.svg');
+
+function renderEvents(r){
+  $('degreeScale').innerHTML=r.scale_svg||'';
+  const events=r.data.events;
+  $('eventsSelection').textContent=events?events.selection:'Таблицы пока недоступны.';
+  const zodiac=['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓'];
+  for(const key of ['past','future']){
+    const target=$(key+'Events');target.replaceChildren();
+    for(const e of events?.[key]||[]){
+      const minute=Math.round((e.longitude%360)*60)%21600;
+      const pos=e.kind==='ingress'?'→ '+zodiac[e.sign]:`${Math.floor(minute%1800/60)}° ${zodiac[Math.floor(minute/1800)]} ${String(minute%60).padStart(2,'0')}′`;
+      const date=new Intl.DateTimeFormat('ru-RU',{timeZone:'UTC',year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(e.time));
+      const tr=document.createElement('tr');
+      for(const v of [date,e.label,pos,(e.days>=0?'+':'')+e.days.toFixed(2)])tr.append(text('td',v));
+      target.append(tr);
+    }
+    if(events?.missing?.[key]) $('eventsSelection').textContent+=` ${key==='past'?'До':'После'} карты: ${events.missing[key]} событий не найдено в пределах поиска.`;
+  }
+}
