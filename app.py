@@ -23,6 +23,7 @@ import storage
 from events import timeline
 from chart_render import event_sheet, full_sheet
 import i18n
+import seo
 from admin import router as admin_router
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -73,6 +74,8 @@ async def protection(request:Request, call_next):
     if request.url.path.startswith('/api/'):
         response.headers['Cache-Control']='no-store'
         response.headers['X-Robots-Tag']='noindex, nofollow'
+    if request.url.path.startswith('/static/') and request.url.path.endswith('.html'):
+        response.headers['X-Robots-Tag']='noindex, follow'
     return response
 
 def owner(request):
@@ -93,7 +96,11 @@ def localized_home(request, lang):
 
 @app.get('/robots.txt')
 def robots():
-    return Response('User-agent: *\nDisallow: /api/\nDisallow: /admin\n',media_type='text/plain')
+    return Response('User-agent: *\nDisallow: /api/\nDisallow: /admin\nSitemap: '+seo.BASE+'/sitemap.xml\n',media_type='text/plain')
+
+@app.get('/sitemap.xml')
+def sitemap():
+    return Response(seo.sitemap(i18n.LANGUAGES),media_type='application/xml')
 
 @app.get('/about')
 def about():

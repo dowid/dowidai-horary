@@ -63,3 +63,5 @@ Validation: `python -m pytest tests`, `node --test tests/voice.test.cjs`. For is
 Admin questions: the authenticated dashboard lists saved questions (20 per page) with city, date, language and model, and expands saved AI answers. The private API never creates share links or returns owner identifiers. Deleted reports are absent.
 
 AI costs in admin are estimated for currently saved reports only, from input/output/cached token counts and model-specific standard rates checked 2026-10-23. Shows total, UTC current month, average and models. Unknown models/missing usage are counted as excluded, not free. Voice, deleted/failed/unsaved calls are not covered. The OpenAI Usage link provides billing reconciliation; no balance is inferred from the $20 top-up.
+
+Primary public domain: https://www.askhorary.app (apex redirects in Vercel). SEO canonical/hreflang URLs use this domain; sitemap.xml lists 16 public RU/EN pages only. Search Console domain property askhorary.app is verified with a DNS TXT record; keep that record. Ask Horary logo is an original SVG; og-card.png is the share preview.

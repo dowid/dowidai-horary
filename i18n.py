@@ -1,5 +1,6 @@
 """Locale registry and server-rendered pages. Add a catalog and content folder per locale."""
 import copy
+import seo
 import json
 from functools import lru_cache
 from html import escape
@@ -77,10 +78,11 @@ def page(filename, lang, path=''):
     scripts = f'<script src="/i18n/{lang}.js?v=1" defer></script><script src="/static/i18n.js?v=1" defer></script>'
     # i18n must execute before app and voice scripts.
     html = html.replace('<head>', '<head>'+scripts, 1)
-    base = 'https://dowidai-horary.vercel.app'
+    base = seo.BASE
     links = ''.join(f'<link rel="alternate" hreflang="{code}" href="{base}/{code}{path}">' for code in LANGUAGES)
+    links += f'<link rel="alternate" hreflang="x-default" href="{base}/en{path}">'
     html = html.replace('</head>', f'<link rel="canonical" href="{base}/{lang}{path}">'+links+'</head>')
-    return html
+    return seo.enhance(html, lang, path)
 
 
 @lru_cache(maxsize=16)
