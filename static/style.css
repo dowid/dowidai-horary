@@ -79,3 +79,5 @@ header,main,footer{width:100%;min-width:0}
 .admin-question{padding:20px 0;border-bottom:1px solid #d9dfd5;overflow-wrap:anywhere}.admin-question h3{font-size:1.2rem;line-height:1.45;margin:0 0 8px}.admin-question details p{white-space:pre-wrap;line-height:1.65}.admin-question summary{cursor:pointer;padding:8px 0}
 
 .brand img{width:40px;height:40px;flex-shrink:0}.brand{white-space:nowrap;font-size:27px}.brand span{letter-spacing:-.7px}@media(max-width:620px){header .brand{font-size:21px;gap:6px}header .brand img{width:32px;height:32px}}
+
+.analytics-consent{position:fixed;bottom:16px;left:16px;right:16px;max-width:650px;z-index:80;background:#fffef9;border:1px solid #bbc5b9;border-radius:12px;padding:18px;box-shadow:0 5px 28px #273f3722;font-size:13px}.analytics-consent p{margin:0 0 12px}.analytics-consent button{margin:0 12px 8px 0;padding:8px 16px;border:1px solid #bbc5b9;border-radius:8px;background:#e9ede2;color:#273f37}.analytics-consent a{display:block;font-size:12px}

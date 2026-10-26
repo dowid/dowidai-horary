@@ -1,5 +1,6 @@
 """Locale registry and server-rendered pages. Add a catalog and content folder per locale."""
 import copy
+import os
 import seo
 import json
 from functools import lru_cache
@@ -76,6 +77,9 @@ def page(filename, lang, path=''):
     switch = '<label class="language-picker"><span class="sr-only">Language / Язык</span><select id="languageSelect" aria-label="Language / Язык">'+options+'</select></label>'
     html = html.replace('</nav>', switch+'</nav>', 1)
     scripts = f'<script src="/i18n/{lang}.js?v=1" defer></script><script src="/static/i18n.js?v=1" defer></script>'
+    environment = escape(os.getenv('VERCEL_ENV', 'development'), quote=True)
+    version = escape(os.getenv('VERCEL_GIT_COMMIT_SHA', 'local')[:12], quote=True)
+    scripts += f'<script src="/static/analytics.js?v=1" data-environment="{environment}" data-version="{version}" defer></script>'
     # i18n must execute before app and voice scripts.
     html = html.replace('<head>', '<head>'+scripts, 1)
     base = seo.BASE

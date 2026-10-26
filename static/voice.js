@@ -103,7 +103,7 @@
           if(!current()) return;
           const question=el('question');
           question.value=[question.value.trim(),result.text].filter(Boolean).join(' ');
-          question.dispatchEvent(new Event('input'));
+          question.dispatchEvent(new Event('input'));window.HoraryAnalytics?.track('voice_completed');
           question.focus();
           message=question.value.length>500?t('Текст добавлен полностью. Сократите вопрос до 500 символов перед отправкой.'):t('Готово. Микрофон выключен. Проверьте текст вопроса перед отправкой.');
         } catch(e) {message=e.name==='AbortError'?t('Распознавание не завершилось вовремя. Вопрос можно написать.'):(e.message||t('Не удалось распознать речь. Вопрос можно написать.'));}
@@ -111,7 +111,7 @@
       };
       s.recorder.start(250);const started=Date.now();
       bars.forEach(bar=>{bar.setAttribute('height',3);bar.setAttribute('y',14.5);});
-      el('voiceSignal').textContent=t('Говорите — шкала реагирует на ваш голос');
+      window.HoraryAnalytics?.track('voice_started');el('voiceSignal').textContent=t('Говорите — шкала реагирует на ваш голос');
       state('recording',t('Записываем · 0 / 30 с'));waveform(s);
       s.timer=setInterval(()=>{const seconds=Math.floor((Date.now()-started)/1000);el('voiceStatus').textContent=t('Записываем · {seconds} / 30 с',{seconds:Math.min(seconds,30)});if(seconds>=30 && s.recorder.state==='recording') s.recorder.stop();},200);
       el('voiceStop').focus();
