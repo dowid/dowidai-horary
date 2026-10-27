@@ -35,7 +35,11 @@ def test_topic_rules_reach_model_and_answer_can_be_saved(monkeypatch, topic):
     monkeypatch.setattr(web,'public_report',lambda row,lang:row)
     saved=[]
     monkeypatch.setattr(web.storage,'connect',lambda:nullcontext(SimpleNamespace(execute=lambda *args:saved.append(args))))
+    turns=[{'prompt':'Which situation?', 'answer':'My own situation'}, {'prompt':'What matters?', 'answer':'The next step'}]
     def post(url,headers,json):
+        context=__import__('json').loads(json['messages'][1]['content'])
+        assert context['question']=='A personal question for this topic'
+        assert context['clarifications']==turns
         if json['max_tokens']==300:
             return SimpleNamespace(raise_for_status=lambda:None,json=lambda:{'choices':[{'finish_reason':'stop','message':{'content':__import__('json').dumps({'status':'ok','topic':topic})}}], 'usage':{'prompt_tokens':100,'completion_tokens':10,'total_tokens':110}})
         payload=__import__('json').loads(json['messages'][1]['content'])
@@ -46,7 +50,9 @@ def test_topic_rules_reach_model_and_answer_can_be_saved(monkeypatch, topic):
         return SimpleNamespace(raise_for_status=lambda:None,json=lambda:{'choices':[{'finish_reason':'stop','message':{'content':__import__('json').dumps(answer)}}]})
     monkeypatch.setattr(web.httpx,'Client',lambda **kwargs:nullcontext(SimpleNamespace(post=post)))
     request=SimpleNamespace(headers={},client=SimpleNamespace(host='test'))
-    result=web.reading(web.Question(question='A personal question for this topic',city_id='test',consent=True),request)
+    result=web.reading(web.Question(question='A personal question for this topic',clarifications=turns,city_id='test',consent=True),request)
+    assert result['question']=='A personal question for this topic'
+    assert result['data']['clarifications']==turns
     assert saved and result['data']['topic_house']==TOPICS[topic][0]
     assert result['data']['rules_version']=='0.2'
     assert result['data']['usage']['total_tokens']==110
@@ -89,3 +95,15 @@ def test_classifier_rejects_invalid_output(result):
 
 def test_usage_includes_both_calls_and_cached_tokens():
     assert combined_usage({'prompt_tokens':100,'completion_tokens':10,'total_tokens':110,'prompt_tokens_details':{'cached_tokens':20}}, {'prompt_tokens':200,'completion_tokens':50,'total_tokens':250}) == {'prompt_tokens':300,'completion_tokens':60,'total_tokens':360,'prompt_tokens_details':{'cached_tokens':20}}
+
+@pytest.mark.parametrize('answer', ['   ', 'я'*500])
+def test_invalid_context_does_not_reserve_attempt(monkeypatch, answer):
+    monkeypatch.setattr(web,'owner',lambda request:'test-owner')
+    monkeypatch.setattr(web,'status',lambda:{'paused':False,'ready':True})
+    monkeypatch.setattr(web,'cities',lambda:{'test':{'name':'Test','latitude':40.71,'longitude':-74.01}})
+    def forbidden(*args,**kwargs): raise AssertionError('Must validate before reserving')
+    monkeypatch.setattr(web.storage,'reserve',forbidden)
+    turns=[{'prompt':'я'*600,'answer':answer}]*5
+    with pytest.raises(HTTPException) as exc:
+        web.reading(web.Question(question='Will things work out?',clarifications=turns,city_id='test',consent=True),None)
+    assert exc.value.status_code==422

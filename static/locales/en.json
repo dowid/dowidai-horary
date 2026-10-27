@@ -191,5 +191,13 @@
   "Отношения": "Relationships",
   "Работа": "Career",
   "Дополните вопрос в поле выше и отправьте сразу. Уточнения не расходуют попытки разбора.": "Add details to your question above and submit immediately. Clarifications do not use reading attempts.",
-  "Слишком много запросов за последние 24 часа. Попробуйте позже.": "Too many requests in the last 24 hours. Please try again later."
+  "Слишком много запросов за последние 24 часа. Попробуйте позже.": "Too many requests in the last 24 hours. Please try again later.",
+  "Ваш ответ на уточнение": "Your reply",
+  "Добавьте подробности здесь": "Add details here",
+  "Исходный вопрос сохранён. Ответьте здесь и отправьте сразу — уточнения не расходуют попытки разбора.": "Your original question is saved. Reply here and send immediately — clarifications do not use reading attempts.",
+  "Отправить ответ →": "Send reply →",
+  "Напишите ответ на уточнение.": "Please enter your reply.",
+  "Слишком длинная переписка. Сократите ответы на уточнения.": "This conversation is too long. Shorten your clarification replies.",
+  "Ссылка откроет ваш вопрос, ответы на уточнения, город и разбор любому, кому вы её передадите. Создать ссылку?": "The link will show your question, clarification replies, city and reading to anyone you share it with. Create a link?",
+  "Достигнут предел уточнений. Дополните исходный вопрос, чтобы начать заново.": "The clarification limit has been reached. Update your original question to start again."
 }
