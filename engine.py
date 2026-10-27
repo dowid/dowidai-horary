@@ -2,6 +2,7 @@
 from datetime import datetime, timezone
 import math
 import swisseph as swe
+from topics import TOPICS
 
 NAMES = ['Солнце', 'Луна', 'Меркурий', 'Венера', 'Марс', 'Юпитер', 'Сатурн']
 SIGNS = ['Овен', 'Телец', 'Близнецы', 'Рак', 'Лев', 'Дева', 'Весы', 'Скорпион', 'Стрелец', 'Козерог', 'Водолей', 'Рыбы']
@@ -12,6 +13,9 @@ def delta(a, b):
     return (a - b + 180) % 360 - 180
 
 def chart(at: datetime, lat: float, lon: float, topic: str):
+    if topic not in TOPICS:
+        raise ValueError('Unsupported question topic.')
+    subject_house = TOPICS[topic][0]
     at = at.astimezone(timezone.utc)
     jd = swe.julday(at.year, at.month, at.day, at.hour + at.minute / 60 + at.second / 3600)
     if abs(lat) >= 66:
@@ -42,7 +46,7 @@ def chart(at: datetime, lat: float, lon: float, topic: str):
         warnings.append('Асцендент близок к границе знака. В выбранной традиции это повод осторожнее относиться к трактовке, а не автоматический запрет.')
     if planets[6]['house'] == 7:
         warnings.append('Сатурн в седьмом доме. Значение зависит от темы вопроса; автоматический отрицательный вывод не делается.')
-    significators = {'querent': f'p{RULERS[int(cusps[0] // 30)]}', 'subject': f'p{RULERS[int(cusps[6 if topic == "relationships" else 9] // 30)]}'}
+    significators = {'querent': f'p{RULERS[int(cusps[0] // 30)]}', 'subject': f'p{RULERS[int(cusps[subject_house - 1] // 30)]}'}
     if significators['querent'] == significators['subject']:
         warnings.append('Один управитель представляет обе стороны. Эта неоднозначность ограничивает автоматическую трактовку.')
     return dict(time=at.isoformat(), latitude=lat, longitude=lon, planets=planets, houses=[round(x, 5) for x in cusps], asc=round(angles[0], 5), aspects=aspects, significators=significators, warnings=warnings, method='Regiomontanus · 7 планет · Moshier · v0.1', limitations=['Орбис отображения 6° — упрощение MVP.', 'Рецепции, достоинства, передача света и Луна без курса пока не оцениваются.', 'Сходящийся аспект означает уменьшение расстояния до точного аспекта сейчас, а не доказанное достижение аспекта в будущем.'])

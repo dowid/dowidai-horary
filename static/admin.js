@@ -26,7 +26,7 @@
     const values=[['За 24 часа',t.last_24h],['За 7 дней',t.last_7d],['Всего сохранено',t.reports],['Браузерных архивов',t.browser_archives],['Публичных ссылок',t.shared],['Полезно / не полезно',count(t.helpful)+' / '+count(t.not_helpful)],['Входных токенов',t.input_tokens],['Выходных токенов',t.output_tokens]];
     $('metrics').replaceChildren(...values.map(([label,value])=>{const card=node('article','');card.className='admin-metric';card.append(node('span',label),node('strong',typeof value==='string'?value:count(value)));return card;}));
     $('updated').textContent='Обновлено: '+new Date(data.generated_at*1000).toLocaleString('ru-RU');
-    breakdown('languages',data.languages,{ru:'Русский',en:'English'});breakdown('topics',data.topics,{career:'Работа',relationships:'Отношения'});breakdown('models',data.models);
+    breakdown('languages',data.languages,{ru:'Русский',en:'English'});breakdown('topics',data.topics,{career:'Работа',relationships:'Отношения',home:'Дом и переезд',study:'Учёба',travel:'Путешествия',friendship:'Друзья'});breakdown('models',data.models);
     const q=data.quota;$('quotaText').textContent=`${q.month}: ${count(q.reservations)} из ${q.limit} вызовов · резерв $${(q.reservations*q.reserve_per_call).toFixed(2)} · осталось ${Math.max(0,q.limit-q.reservations)} вызовов`;$('quotaBar').value=q.reservations;
     $('dailyRows').replaceChildren(...data.daily.map(d=>{const tr=node('tr','');tr.append(node('td',d.day),node('td',count(d.reports)));return tr;}));
     const ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg');svg.setAttribute('viewBox','0 0 960 230');svg.setAttribute('role','img');svg.setAttribute('aria-label','Сохранённые разборы за последние 30 дней; точные значения в таблице ниже.');
