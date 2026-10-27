@@ -10,6 +10,49 @@ import storage
 pytestmark=pytest.mark.skipif(os.getenv('HORARY_DB_TESTS')!='1',reason='Requires dedicated database integration-test opt-in')
 
 
+def test_clarification_releases_daily_slot_and_cooldown_but_keeps_budget(db_schema):
+    for _ in range(12):
+        ticket=storage.reserve('clarifying','same-ip','q',receipt=True)
+        assert isinstance(ticket,dict)
+        storage.release_clarification(ticket)
+    # Immediate continuation is permitted, despite already making >10 clarifications.
+    ticket=storage.reserve('clarifying','same-ip','completed',receipt=True)
+    assert isinstance(ticket,dict)
+    assert storage.reserve('clarifying','same-ip','again',receipt=True)=='rate'
+    with db_schema() as db:
+        assert db.execute('SELECT reservations FROM quota').fetchone()['reservations']==13
+        assert db.execute("SELECT count(*) AS n FROM throttle WHERE key LIKE 'o:clarifying%'").fetchone()['n']==1
+
+
+def test_old_clarification_cannot_release_new_request(db_schema):
+    old=storage.reserve('owner','ip','old',receipt=True)
+    storage.release_clarification(old)
+    new=storage.reserve('owner','ip','new',receipt=True)
+    storage.release_clarification(old)
+    assert storage.reserve('owner','ip','blocked',receipt=True)=='rate'
+    with db_schema() as db:
+        assert db.execute('SELECT touched FROM throttle WHERE key=%s',(new['slot'],)).fetchone()['touched']==new['touched']
+
+
+def test_clarification_abuse_ceiling(db_schema):
+    for _ in range(40):
+        ticket=storage.reserve('owner','ip','q',receipt=True)
+        assert isinstance(ticket,dict)
+        storage.release_clarification(ticket)
+    assert storage.reserve('owner','ip','q',receipt=True)=='requests'
+
+
+def test_continuation_is_owner_bound_single_use_and_bypasses_shared_ip(db_schema):
+    ticket=storage.reserve('owner','ip','q',receipt=True)
+    token=storage.release_clarification(ticket)
+    assert isinstance(token,str)
+    assert storage.reserve('other','ip','q') is None
+    assert storage.reserve('other','ip','q',receipt=True,continuation=token)=='rate'
+    followup=storage.reserve('owner','ip','q',receipt=True,continuation=token)
+    assert isinstance(followup,dict)
+    assert storage.reserve('owner','ip','q',receipt=True,continuation=token)=='rate'
+
+
 def test_admin_aggregates_and_persistent_login_throttle(db_schema,monkeypatch):
     import hashlib
     import app as web

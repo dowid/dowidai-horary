@@ -29,7 +29,7 @@ def test_topic_rules_reach_model_and_answer_can_be_saved(monkeypatch, topic):
     monkeypatch.setattr(web,'owner',lambda request:'test-owner')
     monkeypatch.setattr(web,'status',lambda:{'paused':False,'ready':True})
     monkeypatch.setattr(web,'cities',lambda:{'test':{'name':'Test','latitude':40.71,'longitude':-74.01}})
-    monkeypatch.setattr(web.storage,'reserve',lambda *args:None)
+    monkeypatch.setattr(web.storage,'reserve',lambda *args,**kwargs:{'slot':'test','ip_key':'test','touched':'test'})
     monkeypatch.setenv('SESSION_SECRET','test')
     monkeypatch.setenv('OPENAI_API_KEY','test-not-real')
     monkeypatch.setattr(web,'public_report',lambda row,lang:row)
@@ -69,14 +69,17 @@ def test_clarification_never_builds_chart_or_saves_report(monkeypatch, decision)
     monkeypatch.setenv('SESSION_SECRET','test')
     monkeypatch.setenv('OPENAI_API_KEY','test-not-real')
     reservations=[]
-    monkeypatch.setattr(web.storage,'reserve',lambda *args:reservations.append(args))
+    monkeypatch.setattr(web.storage,'reserve',lambda *args,**kwargs:reservations.append(args) or {'slot':'test','ip_key':'test','touched':'test'})
+    released=[]
+    monkeypatch.setattr(web.storage,'release_clarification',lambda receipt:released.append(receipt))
     monkeypatch.setattr(web,'detect_topic',lambda *args:(decision,{}))
     monkeypatch.setattr(web.httpx,'Client',lambda **kwargs:nullcontext(None))
     def forbidden(*args): raise AssertionError('No chart or database write expected')
     monkeypatch.setattr(web,'chart',forbidden)
     monkeypatch.setattr(web.storage,'connect',forbidden)
     result=web.reading(web.Question(question='Will everything work out?',city_id='test',consent=True),SimpleNamespace(headers={},client=SimpleNamespace(host='test')))
-    assert result==decision and len(reservations)==1
+    assert result['status']==decision['status'] and result['message']==decision['message']
+    assert len(reservations)==1 and len(released)==1
 
 @pytest.mark.parametrize('result', [{'status':'ok','topic':'invented'}, {'status':'clarify','message':''}, {'status':'other'}])
 def test_classifier_rejects_invalid_output(result):

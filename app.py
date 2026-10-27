@@ -145,6 +145,7 @@ def search_cities(q:str=''):
 
 class Question(BaseModel):
     question:str=Field(min_length=10,max_length=500)
+    continuation:str | None = Field(default=None,max_length=100)
     topic:str | None = None  # Legacy clients may send it; routing always uses question text.
     city_id:str=Field(max_length=20)
     consent:bool
@@ -222,9 +223,11 @@ def reading(body:Question,request:Request):
     if abs(float(city['latitude'])) >= 66:raise HTTPException(422,'Для первой версии выберите город южнее полярного круга: расчёт домов на этой широте пока не поддерживается.')
     ip=request.headers.get('x-vercel-forwarded-for') or (request.client.host if request.client else 'unknown')
     iphash=hmac.new(os.environ['SESSION_SECRET'].encode(),ip.encode(),hashlib.sha256).hexdigest()
-    reason=storage.reserve(own,iphash,hashlib.sha256(question.casefold().encode()).hexdigest())
-    if reason:
+    reservation=storage.reserve(own,iphash,hashlib.sha256(question.casefold().encode()).hexdigest(),receipt=True,continuation=body.continuation)
+    if isinstance(reservation,str):
+        reason=reservation
         messages = {
+            'requests': 'Слишком много запросов за последние 24 часа. Попробуйте позже.',
             'daily': f'Использованы все {storage.DAILY_LIMIT} попыток за последние 24 часа. Новая попытка станет доступна через 24 часа после одной из предыдущих. Архив доступен.',
             'rate': 'Между запросами нужна пауза в одну минуту. Подождите немного и попробуйте снова.',
             'budget': 'Бесплатный лимит этого месяца исчерпан. Архив остаётся доступен.',
@@ -234,7 +237,8 @@ def reading(body:Question,request:Request):
         with httpx.Client(timeout=30) as classifier:
             decision, classification_usage=detect_topic(classifier,model,os.environ['OPENAI_API_KEY'],question,body.language)
         if decision['status'] != 'ok':
-            return {'status':decision['status'],'message':decision['message']}
+            continuation=storage.release_clarification(reservation)
+            return {'status':decision['status'],'message':decision['message'],'continuation':continuation}
         topic=decision['topic']
         data=chart(asked_at,float(city['latitude']),float(city['longitude']),topic)
         payload=json.dumps({'question':question,'topic':topic,'chart':data,'rules':RULES+' '+topic_rules(topic)},ensure_ascii=False)
@@ -248,7 +252,9 @@ def reading(body:Question,request:Request):
         raw=r.json()
         if raw['choices'][0]['finish_reason']!='stop':raise ValueError('Incomplete output')
         answer=json.loads(raw['choices'][0]['message']['content'])
-        if answer.get('status')=='clarify':return {'status':'clarify','message':str(answer.get('summary','Уточните вопрос.'))[:600]}
+        if answer.get('status')=='clarify':
+            continuation=storage.release_clarification(reservation)
+            return {'status':'clarify','message':str(answer.get('summary','Уточните вопрос.'))[:600],'continuation':continuation}
         valid_ids={p['id'] for p in data['planets']}|{a['id'] for a in data['aspects']}
         if answer.get('status')!='ok' or not isinstance(answer.get('summary'),str) or not isinstance(answer.get('reflection'),str):raise ValueError('Invalid output')
         factors=answer.get('factors')

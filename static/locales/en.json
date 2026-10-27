@@ -185,10 +185,11 @@
   "Путешествия": "Travel",
   "Друзья": "Friendship",
   "Уточним вопрос": "Let’s clarify your question",
-  "Дополните вопрос в поле выше и отправьте снова. Между попытками нужна минута; уточнение тоже учитывается в лимите.": "Add details to your question above and submit again. Please wait one minute between attempts; clarifications also count toward the limit.",
   "Дополнить вопрос ↑": "Edit question ↑",
   "Понимаем вопрос, затем строим карту и готовим объяснение…": "Understanding your question, then calculating the chart and preparing the reading…",
   "Подтвердите условия перед отправкой.": "Please accept the terms before submitting.",
   "Отношения": "Relationships",
-  "Работа": "Career"
+  "Работа": "Career",
+  "Дополните вопрос в поле выше и отправьте сразу. Уточнения не расходуют попытки разбора.": "Add details to your question above and submit immediately. Clarifications do not use reading attempts.",
+  "Слишком много запросов за последние 24 часа. Попробуйте позже.": "Too many requests in the last 24 hours. Please try again later."
 }
