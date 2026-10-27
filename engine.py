@@ -46,7 +46,7 @@ def chart(at: datetime, lat: float, lon: float, topic: str):
         warnings.append('Асцендент близок к границе знака. В выбранной традиции это повод осторожнее относиться к трактовке, а не автоматический запрет.')
     if planets[6]['house'] == 7:
         warnings.append('Сатурн в седьмом доме. Значение зависит от темы вопроса; автоматический отрицательный вывод не делается.')
-    significators = {'querent': f'p{RULERS[int(cusps[0] // 30)]}', 'subject': f'p{RULERS[int(cusps[subject_house - 1] // 30)]}'}
+    significators = {'querent': f'p{RULERS[int(cusps[0] // 30)]}', 'subject': f'p{RULERS[int(cusps[subject_house - 1] // 30)]}' if subject_house else None}
     if significators['querent'] == significators['subject']:
         warnings.append('Один управитель представляет обе стороны. Эта неоднозначность ограничивает автоматическую трактовку.')
     return dict(time=at.isoformat(), latitude=lat, longitude=lon, planets=planets, houses=[round(x, 5) for x in cusps], asc=round(angles[0], 5), aspects=aspects, significators=significators, warnings=warnings, method='Regiomontanus · 7 планет · Moshier · v0.1', limitations=['Орбис отображения 6° — упрощение MVP.', 'Рецепции, достоинства, передача света и Луна без курса пока не оцениваются.', 'Сходящийся аспект означает уменьшение расстояния до точного аспекта сейчас, а не доказанное достижение аспекта в будущем.'])

@@ -199,5 +199,7 @@
   "Напишите ответ на уточнение.": "Please enter your reply.",
   "Слишком длинная переписка. Сократите ответы на уточнения.": "This conversation is too long. Shorten your clarification replies.",
   "Ссылка откроет ваш вопрос, ответы на уточнения, город и разбор любому, кому вы её передадите. Создать ссылку?": "The link will show your question, clarification replies, city and reading to anyone you share it with. Create a link?",
-  "Достигнут предел уточнений. Дополните исходный вопрос, чтобы начать заново.": "The clarification limit has been reached. Update your original question to start again."
+  "Достигнут предел уточнений. Дополните исходный вопрос, чтобы начать заново.": "The clarification limit has been reached. Update your original question to start again.",
+  "Задайте вопрос на любую тему. Сразу подготовим символический разбор по вашей формулировке.": "Ask about any topic. Get a symbolic reading directly from your question.",
+  "ДЛЯ РАЗМЫШЛЕНИЯ": "FOR REFLECTION"
 }

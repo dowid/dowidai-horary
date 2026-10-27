@@ -1,8 +1,8 @@
 const track=(name,details)=>window.HoraryAnalytics?.track(name,details);
 const {t,language,locale}=window.HoraryI18n;
 const $=id=>document.getElementById(id);let city=null,current=null,shared=false,timer,searchVersion=0;
-let voiceBusy=false, readingBusy=false, servicePaused=false, continuation=null, clarificationTurns=[], pendingClarification=null;
-function updateButtons(){ $('clarificationSubmit').disabled=voiceBusy||readingBusy||servicePaused; $('submitBtn').disabled=voiceBusy||readingBusy||servicePaused; if($('voiceStart')) $('voiceStart').disabled=readingBusy||servicePaused; if($('voiceConfirm')) $('voiceConfirm').disabled=readingBusy||servicePaused; }
+let voiceBusy=false, readingBusy=false, servicePaused=false;
+function updateButtons(){ $('submitBtn').disabled=voiceBusy||readingBusy||servicePaused; if($('voiceStart')) $('voiceStart').disabled=readingBusy||servicePaused; if($('voiceConfirm')) $('voiceConfirm').disabled=readingBusy||servicePaused; }
 document.addEventListener('voicebusy',e=>{voiceBusy=e.detail;updateButtons()});
 const text=(tag,value,cls)=>{const e=document.createElement(tag);e.textContent=value;if(cls)e.className=cls;return e};
 async function api(path,options={}){const r=await fetch(path,{...options,headers:{'Content-Type':'application/json','X-Horary-Language':language,...options.headers}});let d;try{d=await r.json()}catch{throw Error(t('Сервис временно недоступен. Попробуйте позже.'))}if(!r.ok)throw Error(typeof d.detail==='string'?d.detail:t('Проверьте заполнение формы.'));return d}
@@ -12,19 +12,14 @@ let questionStarted=false;
 $('question').addEventListener('input',()=>{if(!questionStarted&&$('question').value.trim()){questionStarted=true;track('question_started');}$('counter').textContent=`${$('question').value.length} / 500`;$('question').setCustomValidity($('question').value.length>500?t('Сократите вопрос до 500 символов.'):'')});
 $('city').addEventListener('input',()=>{city=null;clearTimeout(timer);const version=++searchVersion;$('cityList').hidden=true;$('city').setAttribute('aria-expanded','false');timer=setTimeout(async()=>{try{const rows=await api('/api/cities?q='+encodeURIComponent($('city').value));if(version!==searchVersion)return;$('cityList').replaceChildren();for(const c of rows){const b=text('button',`${c.name} · ${c.country}`);b.type='button';b.setAttribute('role','option');b.onclick=()=>{track('city_selected');city=c;$('city').value=`${c.name} · ${c.country}`;$('cityList').hidden=true;$('city').setAttribute('aria-expanded','false')};$('cityList').append(b)}if(!rows.length)$('cityList').append(text('p',t('Город не найден. Попробуйте название латиницей.'),'hint'));$('cityList').hidden=false;$('city').setAttribute('aria-expanded','true')}catch{error(t('Не удалось загрузить города. Попробуйте ещё раз.'))}},250)});
 document.addEventListener('click',e=>{if(!e.target.closest('.city-wrap')){$('cityList').hidden=true;$('city').setAttribute('aria-expanded','false')}});
-function resetClarifications(){continuation=null;clarificationTurns=[];pendingClarification=null;$('clarification').hidden=true;$('clarificationAnswer').value='';}
 function showTurns(target,turns){target.replaceChildren();for(const turn of turns){target.append(text('p',turn.prompt,'hint'),text('p',turn.answer));}target.hidden=!turns.length;}
-$('question').addEventListener('input',resetClarifications);
 $('questionForm').onsubmit=async e=>{
  e.preventDefault();if(voiceBusy||readingBusy||servicePaused)return;$('formError').hidden=true;
  if(!city){error(t('Выберите город из выпадающего списка.'));return}
- const turns=[...clarificationTurns];
- if(pendingClarification){const answer=$('clarificationAnswer').value.trim();if(!answer){error(t('Напишите ответ на уточнение.'));$('clarificationAnswer').focus();return;}if(turns.length>=5){error(t('Достигнут предел уточнений. Дополните исходный вопрос, чтобы начать заново.'));return;}turns.push({prompt:pendingClarification,answer});}
- track('reading_submitted');const readingStart=performance.now();readingBusy=true;updateButtons();$('question').readOnly=true;$('clarificationAnswer').readOnly=true;$('loading').hidden=false;
- try{const r=await api('/api/readings',{method:'POST',body:JSON.stringify({question:$('question').value,clarifications:turns,continuation,city_id:city.id,consent:$('consent').checked,language})});
- if(['clarify','unsupported'].includes(r.status)){continuation=r.continuation||null;clarificationTurns=turns;pendingClarification=r.message;$('clarificationText').textContent=r.message;showTurns($('clarificationHistory'),turns);$('clarificationAnswer').value='';$('clarification').hidden=false;$('clarificationAnswer').focus();return;}
- resetClarifications();render(r,false);track('reading_completed',{duration_ms:performance.now()-readingStart});
- }catch(e){track('reading_failed',{error_type:'unknown'});error(e.message)}finally{readingBusy=false;updateButtons();$('question').readOnly=false;$('clarificationAnswer').readOnly=false;$('loading').hidden=true;}
+ track('reading_submitted');const readingStart=performance.now();readingBusy=true;updateButtons();$('question').readOnly=true;$('loading').hidden=false;
+ try{const r=await api('/api/readings',{method:'POST',body:JSON.stringify({question:$('question').value,city_id:city.id,consent:$('consent').checked,language})});
+ render(r,false);track('reading_completed',{duration_ms:performance.now()-readingStart});
+ }catch(e){track('reading_failed',{error_type:'unknown'});error(e.message)}finally{readingBusy=false;updateButtons();$('question').readOnly=false;$('loading').hidden=true;}
 };
 function render(r,isShared){current=r;shared=isShared;if(isShared)track('shared_reading_viewed');view('result');$('result').focus();$('resultLabel').textContent=r.id==='demo'?t('ПРИМЕР · НЕ ПЕРСОНАЛЬНЫЙ РАЗБОР'):isShared?t('ОПУБЛИКОВАННЫЙ РАЗБОР'):t('ВАШ ПРИВАТНЫЙ РАЗБОР');$('resultQuestion').textContent=r.question;showTurns($('resultClarifications'),r.data.clarifications||[]);$('resultMeta').textContent=`${r.city} · ${new Date(r.data.time).toLocaleString(locale)} (${t('время вашего браузера')})`;$('readingLanguageNote').hidden=(r.data.language||'ru')===language;$('readingLanguageNote').textContent=t('Язык исходного разбора: {language}. Текст сохранён без перевода.',{language:r.data.language||'ru'});$('summary').textContent=r.data.answer.summary;$('reflection').textContent=r.data.answer.reflection;$('factors').replaceChildren();for(const [i,f] of r.data.answer.factors.entries()){const box=text('article','','factor');box.append(text('span',`0${i+1}`,'step'),text('p',f.text),text('small',t('Основание: {fact} · правило {rule}',{fact:f.fact_id,rule:f.rule_id})));$('factors').append(box)}
 // SVG is generated exclusively by the server from numeric ephemeris data, never from model/user text.

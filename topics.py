@@ -1,5 +1,6 @@
-"""Supported question scopes; house assignments are explicit, never an AI guess."""
+"""Calculation templates; any question may use the general fallback."""
 TOPICS = {
+    'general': (None, 'H011', 'любой вопрос без однозначного тематического дома'),
     'relationships': (7, 'H002', 'партнёр в собственных отношениях'),
     'career': (10, 'H005', 'собственная работа и карьера'),
     'home': (4, 'H007', 'собственное жильё и обустройство дома; переезд только как тема жилья, без сравнения мест'),
@@ -10,6 +11,8 @@ TOPICS = {
 
 def topic_rules(topic):
     house, rule, scope = TOPICS[topic]
+    if house is None:
+        return 'H011: общий символический обзор карты. Тематический дом не определён; не назначай его и не выдумывай показатели предмета вопроса. Укажи неопределённость в ответе без просьбы уточнить вопрос.'
     return f'{rule}: {scope} — управитель {house}-го дома. Это ограниченная символическая схема, не полный анализ темы.'
 
 def allowed_rules(topic):
